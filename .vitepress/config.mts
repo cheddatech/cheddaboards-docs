@@ -5,9 +5,13 @@ export default defineConfig({
   description: 'Online leaderboards for any game engine. Hosted or self-hosted.',
   cleanUrls: true,
   lastUpdated: true,
+  appearance: 'dark',
   sitemap: { hostname: 'https://docs.cheddaboards.com' },
   head: [
-    ['link', { rel: 'icon', href: '/favicon.ico' }]
+    ['link', { rel: 'icon', href: '/favicon.ico' }],
+    ['link', { rel: 'preconnect', href: 'https://fonts.googleapis.com' }],
+    ['link', { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' }],
+    ['link', { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@400;500;600;700&display=swap' }]
   ],
   themeConfig: {
     logo: '/logo.png',
@@ -81,7 +85,7 @@ export default defineConfig({
       text: 'Edit this page on GitHub'
     },
     footer: {
-      message: 'Open source backend and SDKs.',
+      message: "Can't be taken away. Open source backend and SDKs.",
       copyright: '© CheddaTech Ltd'
     }
   }
