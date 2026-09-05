@@ -40,7 +40,3 @@ Corrections and improvements are welcome — open an issue or a PR. Every page h
 ## History
 
 The docs used to live in the [CheddaBoards-Godot](https://github.com/cheddatech/cheddaboards-godot) repo. They moved here so the platform docs aren't Godot-specific; that repo now keeps only Godot install instructions and links here.
-
----
-
-MIT — see [LICENSE](LICENSE).
