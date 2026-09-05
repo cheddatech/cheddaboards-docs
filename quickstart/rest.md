@@ -298,7 +298,7 @@ That's a complete integration. Everything else on this page — targeted boards,
 |--------|----------|---------|
 | `POST` | `/scores` | Submit a score (`playerId`, `gameId`, `score`, `streak`, `nickname`, `playSessionToken?`, `scoreboardId?`). With `scoreboardId`, writes to that one targeted board instead of fanning out. |
 | `GET`  | `/leaderboard?sort={score\|streak}&limit={n}` | Global leaderboard |
-| `GET`  | `/players/{playerId}/rank?sort={score\|streak}` | A player's rank |
+| `GET`  | `/games/{gameId}/scoreboards/{scoreboardId}/rank` | A player's rank on a board (session-authenticated) |
 | `GET`  | `/players/{playerId}/profile` | Anonymous player profile |
 | `GET`  | `/auth/profile` | Signed-in player profile (uses `X-Session-Token`) |
 | `PUT`  | `/profile/nickname` | Change nickname, signed-in (`X-Session-Token`, `{ nickname }`) |
@@ -311,7 +311,8 @@ That's a complete integration. Everything else on this page — targeted boards,
 | `POST` | `/play-sessions/start` | Begin an anti-cheat session (`{ gameId, playerId }`) |
 | `POST` | `/play-sessions/end` | End a session (`{ playSessionToken }`) |
 | `POST` | `/achievements` | Unlock achievements — single (`{ achievementId }`) or batch (`{ achievementIds: [...] }`); read them back via the player's profile |
-| `GET`  | `/game`, `/game/stats` | Game metadata & stats |
+| `GET`  | `/game` | Game metadata |
+| `GET`  | `/stats` | Platform submission stats |
 | `GET`  | `/health` | Service health check |
 
 ::: info
