@@ -23,7 +23,7 @@ Check `ok` before reading `data`, and surface `error` when it's false.
 
 ### `Scoreboard '<id>' not found for this game.`
 
-You submitted a score with a `scoreboardId` that doesn't exist on this game. Boards are **never auto-created by the API** — create the board first in the Developer Console (**Scoreboards** tab), and for targeted submits make sure its Board Type is **Targeted**. Retrying the same submit without creating the board will fail forever.
+You submitted a score with a `scoreboardId` that doesn't exist on this game. Every game gets its standard time-based boards (all-time, weekly, daily) automatically — but **custom boards are never created by a submit**. Create the board first in the Developer Console (**Scoreboards** tab), and for targeted submits make sure its Board Type is **Targeted**. Retrying the same submit without creating the board will fail forever.
 
 ### `rejected by game validation rules`
 

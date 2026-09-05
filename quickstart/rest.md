@@ -41,7 +41,7 @@ There's no "anonymous login" call. An anonymous player is just a **persistent ID
 
 ### Nicknames
 
-One rule everywhere: **3–16 characters, letters, digits, and underscores only** (`A–Z a–z 0–9 _`). This applies to nicknames on submits, both nickname-change endpoints, and sign-in names. An invalid or already-taken nickname is rejected with a clear error and the player keeps their existing or default (`Player_<n>`) name — rejection is permanent for that value, so don't retry the same nickname on `nickname_error`.
+One rule everywhere: **3–16 characters, letters, digits, and underscores only** (`A–Z a–z 0–9 _`). This applies to nicknames on submits, both nickname-change endpoints, and sign-in names. An invalid nickname is rejected with a clear `400` — rejection is permanent for that value, so don't retry the same nickname on `nickname_error`; ask the player for another. A nickname that's merely *taken* is handled for you: the backend appends a numeric suffix (`PlayerName` → `PlayerName_1`) and tells you the name it applied.
 
 ## 1. Submit a score
 
@@ -112,7 +112,7 @@ How a targeted submit differs from a plain one:
 - The same play-session / time-validation and rate-limit rules apply as for a plain submit.
 - You can chain several targeted submits for one run (e.g. a `runs` board plus the relevant `level-14` board) — the throttle is keyed per board, so back-to-back board writes won't trip the 2-second gate.
 
-The target board must already exist **and be marked as targeted**. Create it in the **Developer Console → Scoreboards** tab: set a Scoreboard ID, choose **Board Type → Targeted**, and create it. Submitting a `scoreboardId` that points at a board that doesn't exist returns `"Scoreboard '<id>' not found for this game."` — create the board in the console first; the API never auto-creates boards on submit.
+The target board must already exist **and be marked as targeted**. Create it in the **Developer Console → Scoreboards** tab: set a Scoreboard ID, choose **Board Type → Targeted**, and create it. Submitting a `scoreboardId` that points at a board that doesn't exist returns `"Scoreboard '<id>' not found for this game."` — create the board in the console first; a submit never creates a board.
 
 Reading a targeted board is no different from any other — see §2 below and the scoreboard read endpoint:
 
@@ -310,7 +310,7 @@ That's a complete integration. Everything else on this page — targeted boards,
 | `POST` | `/migrate-account` | Upgrade an anonymous account to a verified one |
 | `POST` | `/play-sessions/start` | Begin an anti-cheat session (`{ gameId, playerId }`) |
 | `POST` | `/play-sessions/end` | End a session (`{ playSessionToken }`) |
-| `POST` | `/achievements` | Unlock / sync achievements (single or batched) |
+| `POST` | `/achievements` | Unlock achievements — single (`{ achievementId }`) or batch (`{ achievementIds: [...] }`) |
 | `GET`  | `/players/{playerId}/achievements` | List a player's achievements |
 | `GET`  | `/game`, `/game/stats` | Game metadata & stats |
 | `GET`  | `/health` | Service health check |
@@ -326,6 +326,6 @@ Timed-scoreboard **archives** have their own endpoints under `/games/{gameId}/sc
 - A `404` on a scoreboard lookup is normal — it just means that scoreboard isn't configured for the game.
 - **Submits are safe to retry.** The backend keeps per-player bests, so resending a score after a timeout can never lower a score or streak — no client-side dedupe needed. The only thing a duplicate submit moves is the player's play count, so avoid blind retry *loops* if play counts matter to you.
 - Rate limiting is enforced server-side: one submit per player per board every 2 seconds.
-- Targeted boards are created in the Developer Console (**Board Type → Targeted**) before you submit to them. The API never creates boards.
+- Targeted boards are created in the Developer Console (**Board Type → Targeted**) before you submit to them. A submit never creates one — but every game's standard timed boards (all-time, weekly, daily) exist from registration.
 
 **See also:** [Godot drop-in quick start](/quickstart/godot) · [Authentication](/api/authentication) · [Anti-cheat](/concepts/anti-cheat) · [Community C library](https://github.com/charlie-makes-things/C_cheddaboards)
