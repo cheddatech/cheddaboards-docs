@@ -47,7 +47,6 @@ export default defineConfig({
         items: [
           { text: 'Godot 4', link: '/engines/godot-4' },
           { text: 'Godot 3.6', link: '/engines/godot-3' },
-          { text: 'Unity', link: '/engines/unity' },
           { text: 'Signals reference (Godot)', link: '/engines/godot-signals' },
           { text: 'Web / HTML5 export', link: '/engines/web-export' }
         ]
