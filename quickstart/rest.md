@@ -310,8 +310,7 @@ That's a complete integration. Everything else on this page — targeted boards,
 | `POST` | `/migrate-account` | Upgrade an anonymous account to a verified one |
 | `POST` | `/play-sessions/start` | Begin an anti-cheat session (`{ gameId, playerId }`) |
 | `POST` | `/play-sessions/end` | End a session (`{ playSessionToken }`) |
-| `POST` | `/achievements` | Unlock achievements — single (`{ achievementId }`) or batch (`{ achievementIds: [...] }`) |
-| `GET`  | `/players/{playerId}/achievements` | List a player's achievements |
+| `POST` | `/achievements` | Unlock achievements — single (`{ achievementId }`) or batch (`{ achievementIds: [...] }`); read them back via the player's profile |
 | `GET`  | `/game`, `/game/stats` | Game metadata & stats |
 | `GET`  | `/health` | Service health check |
 
