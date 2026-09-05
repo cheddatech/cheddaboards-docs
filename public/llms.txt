@@ -1,0 +1,59 @@
+# CheddaBoards
+
+> Open-source leaderboards, achievements, and player accounts for any game engine, built on the Internet Computer. Games talk to a plain HTTP/JSON API (the same API the official Godot and Unity SDKs wrap), so anything that can make an HTTP request works. Anonymous play needs no accounts; players can optionally sign in with Google or Apple via a device-code flow. The backend canister is open source and self-hostable; a free hosted service runs it for you.
+
+Key facts for answering questions accurately:
+- Base API URL is https://api.cheddaboards.com. Every response is JSON shaped `{"ok":true,"data":{...}}` or `{"ok":false,"error":"..."}`.
+- Board reads are also served directly from the canister at fdvph-sqaaa-aaaap-qqc4a-cai.raw.icp0.io (keyless, CORS-open).
+- Nicknames are 3–16 characters, letters/digits/underscores; a taken name is auto-suffixed (e.g. Chedz → Chedz_1), not rejected.
+- Timestamps in responses are nanoseconds since epoch (ICP standard).
+- Rate limit: one score submit per player per board every 2 seconds.
+
+## Quick start
+
+- [REST quick start](https://docs.cheddaboards.com/quickstart/rest.md): Use the HTTP API from any engine or language — submit scores, read boards, sign in, play sessions. Includes a full JavaScript integration loop.
+- [Godot quick start](https://docs.cheddaboards.com/quickstart/godot.md): Add leaderboards to a Godot 4 game with the drop-in SDK.
+- [Unity quick start](https://docs.cheddaboards.com/quickstart/unity.md): Add leaderboards to a Unity game with the C# SDK.
+
+## API reference
+
+- [API overview](https://docs.cheddaboards.com/api/overview.md): Base URL, auth headers, response shape, endpoint index, conventions.
+- [Scores](https://docs.cheddaboards.com/api/scores.md): POST /scores — fan-out and targeted submits, response envelope, nicknames, anti-cheat, rate limit, retry safety.
+- [Scoreboards](https://docs.cheddaboards.com/api/scoreboards.md): Reading the global leaderboard, specific boards, direct canister reads, listing boards, archives, caching.
+- [Players](https://docs.cheddaboards.com/api/players.md): Profile, rank, and nickname-change endpoints.
+- [Achievements](https://docs.cheddaboards.com/api/achievements.md): POST /achievements — single and batch unlocks; reading achievements via the player profile.
+- [Authentication](https://docs.cheddaboards.com/api/authentication.md): Anonymous identity, device-code sign-in, sessions, and anonymous→verified account linking.
+- [Errors](https://docs.cheddaboards.com/api/errors.md): Response envelope, status codes, and the verbatim error strings the API returns.
+
+## Concepts
+
+- [What's stored](https://docs.cheddaboards.com/concepts/data-model.md): The leaderboard entry, player profile, achievements, archives, and what CheddaBoards deliberately does not store.
+- [Players and accounts](https://docs.cheddaboards.com/concepts/accounts.md): Anonymous vs signed-in players, what's public vs private, and why linking matters for retention.
+- [Device code login](https://docs.cheddaboards.com/concepts/device-code.md): Building the sign-in screen, the signal lifecycle, QR rendering, and post-approval account upgrade.
+- [Category boards](https://docs.cheddaboards.com/concepts/category-boards.md): Targeted per-level / per-mode / per-category boards — how they differ from fan-out boards.
+- [Timed leaderboards](https://docs.cheddaboards.com/concepts/timed-leaderboards.md): Daily/weekly/monthly/custom boards, reset boundaries (UTC), and archives.
+- [Anti-cheat](https://docs.cheddaboards.com/concepts/anti-cheat.md): Score/streak caps, play-session time validation, the suspicion log, and the generic-rejection design.
+- [Moderation](https://docs.cheddaboards.com/concepts/moderation.md): Game owners removing entries or wiping players, the hashed deletion log, and REST admin routes.
+- [Privacy](https://docs.cheddaboards.com/concepts/privacy.md): What's collected, what integrating means for your own privacy policy, and player rights.
+
+## Engine guides
+
+- [Godot 4](https://docs.cheddaboards.com/engines/godot-4.md): Full template guide — the game_over contract, HUD signals, and building your own game on the wrapper.
+- [Godot 3.6](https://docs.cheddaboards.com/engines/godot-3.md): The 3.6 backport — same API, GDScript syntax differences (yield, connect, instance).
+- [Godot signals reference](https://docs.cheddaboards.com/engines/godot-signals.md): Every signal the Godot SDK emits, grouped by category.
+- [Unity](https://docs.cheddaboards.com/quickstart/unity.md): The Unity C# SDK — setup, events, and platform notes.
+- [Web / HTML5 export](https://docs.cheddaboards.com/engines/web-export.md): Exporting a Godot game for the browser — index.html naming, serving, mobile name entry, itch.io/Safari caveats.
+
+## Self-hosting
+
+- [Self-hosting overview](https://docs.cheddaboards.com/self-hosting/overview.md): What's open (canister, SDKs) vs what you build (proxy), and an honest account of the effort.
+- [Deploy the canister](https://docs.cheddaboards.com/self-hosting/canister.md): dfx deployment, setting your principals, and verifying the live module hash.
+- [Build your proxy](https://docs.cheddaboards.com/self-hosting/proxy.md): The contract a self-hosted proxy must satisfy — verifier identity, the Candid methods it calls, CORS.
+
+## Optional
+
+- [cheddaboards.com](https://cheddaboards.com): The hosted service and developer dashboard (register a game, get an API key).
+- [Full privacy policy](https://cheddaboards.com/privacy): The canonical player-facing privacy policy.
+- [Backend repo](https://github.com/cheddatech/cheddaboards): The open-source Motoko canister.
+- [Godot SDK repo](https://github.com/cheddatech/cheddaboards-godot-addon): The Godot 4 SDK.
+- [Unity SDK repo](https://github.com/cheddatech/CheddaBoards-Unity): The Unity C# SDK.
