@@ -39,7 +39,6 @@ export default defineConfig({
           { text: 'Scoreboards', link: '/api/scoreboards' },
           { text: 'Players', link: '/api/players' },
           { text: 'Achievements', link: '/api/achievements' },
-          { text: 'Moderation', link: '/api/moderation' },
           { text: 'Errors', link: '/api/errors' }
         ]
       },
