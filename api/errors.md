@@ -57,9 +57,11 @@ Play sessions are capped per player (enforced by the backend). End sessions when
 
 The device-code sign-in flow has a cap on outstanding unapproved codes. Transient — wait a moment and request a new code.
 
-### `Google client ID not registered for this game. Add your client ID in the CheddaBoards dashboard.`
+### OAuth / client ID errors
 
-(And the Apple equivalent: `Apple bundle ID not registered for this game. Add your bundle ID in the CheddaBoards dashboard.`) Sign-in requires your OAuth client ID / bundle ID to be configured on the game in the Developer Console first — this is a game-setup issue, not a player error.
+Games don't configure OAuth — there's nothing to register, and no client ID or bundle ID field in the Developer Console. Player sign-in goes through the device-code flow: request a code, show the player the link URL, and they sign in with Google or Apple on the CheddaBoards link page using CheddaBoards' own credentials. See [Authentication](/api/authentication).
+
+If you're seeing an error that mentions client IDs or bundle IDs, you're calling a legacy direct-OAuth path that isn't supported for games. Switch to the device-code flow instead.
 
 ### Invalid path segment (HTTP 400)
 
