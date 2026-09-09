@@ -4,6 +4,7 @@ export default defineConfig({
   title: 'CheddaBoards Docs',
   description: 'Online leaderboards for any game engine. Hosted or self-hosted.',
   cleanUrls: true,
+  srcExclude: ['README.md'],
   lastUpdated: true,
   appearance: 'dark',
   sitemap: { hostname: 'https://docs.cheddaboards.com' },

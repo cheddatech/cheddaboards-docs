@@ -16,7 +16,7 @@ The [zero-experience path](#zero-to-leaderboard) below walks the whole thing fro
 
 - **Godot 4.6 or newer** — free from [godotengine.org](https://godotengine.org), a single download, no installer. (On Godot 3.6, see the [3.6 guide](/engines/godot-3).)
 - **A CheddaBoards game** — register at [cheddaboards.com](https://cheddaboards.com/developers) for a Game ID and API key.
-- **The template** — from the [Godot Asset Store](https://store.godotengine.org/asset/cheddatech/cheddaboards) or [GitHub](https://github.com/cheddatech/cheddaboards-godot).
+- **The template** — from the [Godot Asset Store](https://store.godotengine.org/asset/cheddatech/cheddaboards-template) or [GitHub](https://github.com/cheddatech/cheddaboards-godot).
 
 ## Zero to leaderboard
 

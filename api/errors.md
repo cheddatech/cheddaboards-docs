@@ -25,6 +25,10 @@ Check `ok` before reading `data`, and surface `error` when it's false.
 
 You submitted a score with a `scoreboardId` that doesn't exist on this game. Every game gets its standard time-based boards (all-time, weekly, daily) automatically — but **custom boards are never created by a submit**. Create the board first in the Developer Console (**Scoreboards** tab), and for targeted submits make sure its Board Type is **Targeted**. Retrying the same submit without creating the board will fail forever.
 
+### `This game requires starting a session before submitting.`
+
+The game has **time validation** enabled, which makes the play-session token required — a submit without a valid `playSessionToken` is rejected before any score checks run. Start a session when the run begins (`POST /play-sessions/start`), pass its token in the submit body, and end the session after submitting (`POST /play-sessions/end`). The official SDKs run this lifecycle automatically, so if you're seeing this from an SDK integration, the session start likely didn't happen before the submit. (The `startGameSession` the message mentions is the backend's internal name — on REST the call is `/play-sessions/start`.) See [Anti-cheat](/concepts/anti-cheat).
+
 ### `rejected by game validation rules`
 
 The score tripped one of the game's anti-cheat limits (score cap, streak cap, or time validation). The message is deliberately generic — the specific reason is logged to your dashboard's suspicion log, visible only to the game owner, so players can't probe your limits. If you're the developer and this surprises you, check the Security tab's caps and whether your submits carry a valid `playSessionToken`.
