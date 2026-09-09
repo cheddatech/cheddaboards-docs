@@ -1,0 +1,116 @@
+diff --git a/.vitepress/config.mts b/.vitepress/config.mts
+index 184e218..5841467 100644
+--- a/.vitepress/config.mts
++++ b/.vitepress/config.mts
+@@ -27,7 +27,8 @@ export default defineConfig({
+         items: [
+           { text: 'REST (any engine)', link: '/quickstart/rest' },
+           { text: 'Godot drop-in', link: '/quickstart/godot' },
+-          { text: 'Unity', link: '/quickstart/unity' }
++          { text: 'Unity', link: '/quickstart/unity' },
++          { text: 'Going to production', link: '/quickstart/production' }
+         ]
+       },
+       {
+diff --git a/index.md b/index.md
+index 128be34..e4c7229 100644
+--- a/index.md
++++ b/index.md
+@@ -2,7 +2,7 @@
+ layout: home
+ hero:
+   name: CheddaBoards
+-  text: Leaderboards for any game engine
++  text: Leaderboards, accounts and achievements for any engine
+   tagline: A plain HTTP API. No OAuth setup, no servers, no credit card.
+   actions:
+     - theme: brand
+@@ -18,7 +18,18 @@ features:
+   - title: Any engine
+     details: If it can make an HTTP request it can use CheddaBoards. Official SDKs for Godot 4, Godot 3.6 and Unity.
+   - title: Players sign in on their own terms
+-    details: Anonymous by default. Link a Google or Apple account with a device code, no OAuth console setup on your side.
++    details: Anonymous by default. Link a Google or Apple account with a device code — no OAuth console setup on your side — and progress follows the player across devices.
++    link: /concepts/accounts
++  - title: Achievements
++    details: Server-stored achievements that work for anonymous players and carry over when they link an account.
++    link: /api/achievements
++  - title: Anti-cheat and moderation
++    details: Score caps, time validation and a suspicion log — plus entry deletion from your dashboard when something slips through.
++    link: /concepts/anti-cheat
++  - title: Boards for every shape of game
++    details: All-time, weekly and daily boards out of the box, plus category boards for levels, modes and events.
++    link: /concepts/category-boards
+   - title: Yours to keep
+     details: The backend and SDKs are open source. Use the hosted service or run your own.
++    link: /self-hosting/overview
+ ---
+diff --git a/quickstart/godot.md b/quickstart/godot.md
+index 3dfe96c..eac3983 100644
+--- a/quickstart/godot.md
++++ b/quickstart/godot.md
+@@ -99,7 +99,7 @@ func _on_session_error(reason: String):
+     push_warning("Play session error: %s" % reason)
+ ```
+ 
+-Set the actual limits (max score per submission, streak caps) from your dashboard's **Security** tab — see [Anti-cheat](/concepts/anti-cheat). Skip the session entirely and scores still submit; they just won't be time-validated.
++Set the actual limits (max score per submission, streak caps) from your dashboard's **Security** tab — see [Anti-cheat](/concepts/anti-cheat). Skip the session entirely and scores still submit — unless you've enabled time validation for the game, in which case the session token is **required** and sessionless submits are rejected. (The SDK runs the session lifecycle for you, so with the autoload in place you're already covered.)
+ 
+ ## Done
+ 
+diff --git a/quickstart/production.md b/quickstart/production.md
+new file mode 100644
+index 0000000..9f05d7b
+--- /dev/null
++++ b/quickstart/production.md
+@@ -0,0 +1,37 @@
++# Going to production
++
++A pre-release pass for games shipping with CheddaBoards. Everything on this list has bitten a real integration at least once.
++
++## Keys and identity
++
++- **Real API key in the build.** Templates and examples ship with a placeholder — confirm your build carries your actual `cb_...` key.
++- **Game ID matches the dashboard exactly.** A mismatch usually shows up as an empty leaderboard, not an error.
++- **Debug logging off.** Turn off the SDK's debug output before shipping.
++
++## Anti-cheat
++
++- **Caps set from real data.** Per-round max just above your best legitimate run, all-time ceiling above anything a real player could accumulate. See [Anti-cheat](/concepts/anti-cheat).
++- **Play sessions wired.** If time validation is on, the session token is required — and wiring the start → submit → end lifecycle costs nothing while it's off. The official SDKs handle this automatically.
++- **Watch the suspicion log for the first week.** Start loose, see where real submissions cluster, then tighten.
++
++## Sessions and accounts
++
++- **Session persistence tested.** Sign in, fully restart the game, confirm the player is still signed in. The SDKs persist sessions automatically; REST integrations store the `sessionId` themselves — see [Authentication](/api/authentication).
++- **`401`/`403` handled as sign-out.** A dead session means discard the stored token and fall back to sign-in — never retry with the same token.
++- **Account linking tested on a clean install.** Play anonymously, then link — anonymous progress should merge into the account, not vanish.
++
++## Boards and traffic
++
++- **Every board ID your code references exists on the dashboard.**
++- **Submit frequency respects the throttle** — one submit per player per board every 2 seconds. If your game submits per event, remember the gate is keyed per board.
++- **Leaderboard reads sized sanely.** Fetch what you display, and prefer refreshing on submit and on screen-open over a fast polling timer.
++
++## Privacy
++
++- **CheddaBoards named in your privacy policy.** Most stores require one, and the honest disclosure is short — [Privacy](/concepts/privacy) has ready-made wording.
++
++## Web / HTML5
++
++- **Web export tested where it will actually live.** Run it inside the itch.io (or portal) iframe on a real phone — exit behaviour, touch scrolling and safe areas are covered in [Web export](/engines/web-export).
++
++Then, before you hit publish: one full run on a completely wiped install — fresh anonymous player → play → submit → sign in → confirm the merge.
+diff --git a/quickstart/unity.md b/quickstart/unity.md
+index 9bd9a83..68d5a98 100644
+--- a/quickstart/unity.md
++++ b/quickstart/unity.md
+@@ -83,7 +83,7 @@ void OnGameOver(int score, int streak)
+ }
+ ```
+ 
+-Set the actual limits (score caps, time validation) from your dashboard's Security tab — see [Anti-cheat](/concepts/anti-cheat). Without a session, scores still submit; they just skip time validation.
++Set the actual limits (score caps, time validation) from your dashboard's Security tab — see [Anti-cheat](/concepts/anti-cheat). Without a session, scores still submit — unless the game has time validation enabled, in which case the session token is **required** and sessionless submits are rejected.
+ 
+ ## Signing in with Google / Apple (optional)
+ 

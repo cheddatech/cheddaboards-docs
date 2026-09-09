@@ -83,7 +83,7 @@ void OnGameOver(int score, int streak)
 }
 ```
 
-Set the actual limits (score caps, time validation) from your dashboard's Security tab — see [Anti-cheat](/concepts/anti-cheat). Without a session, scores still submit; they just skip time validation.
+Set the actual limits (score caps, time validation) from your dashboard's Security tab — see [Anti-cheat](/concepts/anti-cheat). Without a session, scores still submit — unless the game has time validation enabled, in which case the session token is **required** and sessionless submits are rejected.
 
 ## Signing in with Google / Apple (optional)
 

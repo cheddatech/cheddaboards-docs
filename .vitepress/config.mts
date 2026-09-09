@@ -27,7 +27,8 @@ export default defineConfig({
         items: [
           { text: 'REST (any engine)', link: '/quickstart/rest' },
           { text: 'Godot drop-in', link: '/quickstart/godot' },
-          { text: 'Unity', link: '/quickstart/unity' }
+          { text: 'Unity', link: '/quickstart/unity' },
+          { text: 'Going to production', link: '/quickstart/production' }
         ]
       },
       {

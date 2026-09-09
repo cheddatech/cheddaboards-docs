@@ -99,7 +99,7 @@ func _on_session_error(reason: String):
     push_warning("Play session error: %s" % reason)
 ```
 
-Set the actual limits (max score per submission, streak caps) from your dashboard's **Security** tab — see [Anti-cheat](/concepts/anti-cheat). Skip the session entirely and scores still submit; they just won't be time-validated.
+Set the actual limits (max score per submission, streak caps) from your dashboard's **Security** tab — see [Anti-cheat](/concepts/anti-cheat). Skip the session entirely and scores still submit — unless you've enabled time validation for the game, in which case the session token is **required** and sessionless submits are rejected. (The SDK runs the session lifecycle for you, so with the autoload in place you're already covered.)
 
 ## Done
 
