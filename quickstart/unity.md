@@ -15,6 +15,7 @@ Copy `CheddaBoards.cs` from the [CheddaBoards-Unity repo](https://github.com/che
 
 ```csharp
 using UnityEngine;
+using CheddaTech;   // the SDK lives in the CheddaTech namespace
 
 public class Leaderboards : MonoBehaviour
 {
