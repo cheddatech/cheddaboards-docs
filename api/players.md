@@ -57,6 +57,10 @@ The rule is the same on both: **3–16 characters, letters, digits, and undersco
 - A **taken** name isn't an error — it's auto-suffixed (`Chedz` → `Chedz_1`) and the response reports the name actually applied.
 - A genuinely **invalid** name is rejected with one of: `Nickname must be at least 3 characters`, `Nickname must be 16 characters or less`, `Nickname can only contain letters, numbers, and underscores`. That rejection is permanent for that value — ask for a different name rather than retrying.
 
+::: warning An anonymous player must exist server-side before a rename sticks
+An anonymous player isn't created on the backend until their **first score submit**. Change a nickname before that and there's no server record to update — the change applies locally and is overwritten by the login nickname on the next submit. Offer the rename after the first score has landed. (The official SDKs mirror this: a pre-submit `ChangeNickname` updates the cached name only; once a profile exists, the same call persists to the server.)
+:::
+
 ## Identity, briefly
 
 `playerId` is the player's private identifier — the `dev_<unixtime>_<random>` ID your game generates for anonymous players, or the account behind a signed-in one. It's never shown to other players; only the nickname is public. The conceptual picture is in [Players and accounts](/concepts/accounts).

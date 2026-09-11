@@ -4,6 +4,10 @@ Achievements are stored server-side, work for anonymous and signed-in players al
 
 Anonymous players' achievements live client-side and migrate into the account when they [upgrade to a verified sign-in](/api/authentication#upgrading-anonymous-verified-account-linking); a signed-in player's achievements are stored against their account and follow them across devices.
 
+::: tip Unlock after the first score submit
+An anonymous player isn't created on the backend until their first score submit, so unlocks fired before that have no player to attach to. Unlock achievements once a score has landed for that player — or queue them during play and flush them (as a batch) right after the submit succeeds.
+:::
+
 ## Unlock achievements
 
 `POST /achievements` unlocks one or more achievements for a player. It takes either a single ID or an array — send the array whenever you're unlocking more than one at once, since a batch is a single call instead of one per achievement.
