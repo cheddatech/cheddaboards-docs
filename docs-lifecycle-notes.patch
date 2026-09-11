@@ -1,0 +1,30 @@
+diff --git a/api/achievements.md b/api/achievements.md
+index 53c9bcd..6807e76 100644
+--- a/api/achievements.md
++++ b/api/achievements.md
+@@ -4,6 +4,10 @@ Achievements are stored server-side, work for anonymous and signed-in players al
+ 
+ Anonymous players' achievements live client-side and migrate into the account when they [upgrade to a verified sign-in](/api/authentication#upgrading-anonymous-verified-account-linking); a signed-in player's achievements are stored against their account and follow them across devices.
+ 
++::: tip Unlock after the first score submit
++An anonymous player isn't created on the backend until their first score submit, so unlocks fired before that have no player to attach to. Unlock achievements once a score has landed for that player — or queue them during play and flush them (as a batch) right after the submit succeeds.
++:::
++
+ ## Unlock achievements
+ 
+ `POST /achievements` unlocks one or more achievements for a player. It takes either a single ID or an array — send the array whenever you're unlocking more than one at once, since a batch is a single call instead of one per achievement.
+diff --git a/api/players.md b/api/players.md
+index 7e35316..758d506 100644
+--- a/api/players.md
++++ b/api/players.md
+@@ -57,6 +57,10 @@ The rule is the same on both: **3–16 characters, letters, digits, and undersco
+ - A **taken** name isn't an error — it's auto-suffixed (`Chedz` → `Chedz_1`) and the response reports the name actually applied.
+ - A genuinely **invalid** name is rejected with one of: `Nickname must be at least 3 characters`, `Nickname must be 16 characters or less`, `Nickname can only contain letters, numbers, and underscores`. That rejection is permanent for that value — ask for a different name rather than retrying.
+ 
++::: warning An anonymous player must exist server-side before a rename sticks
++An anonymous player isn't created on the backend until their **first score submit**. Change a nickname before that and there's no server record to update — the change applies locally and is overwritten by the login nickname on the next submit. Offer the rename after the first score has landed. (The official SDKs mirror this: a pre-submit `ChangeNickname` updates the cached name only; once a profile exists, the same call persists to the server.)
++:::
++
+ ## Identity, briefly
+ 
+ `playerId` is the player's private identifier — the `dev_<unixtime>_<random>` ID your game generates for anonymous players, or the account behind a signed-in one. It's never shown to other players; only the nickname is public. The conceptual picture is in [Players and accounts](/concepts/accounts).
