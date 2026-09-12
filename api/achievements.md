@@ -2,7 +2,7 @@
 
 Achievements are stored server-side, work for anonymous and signed-in players alike, and sync independently of score submission — so a slow or failed achievement call never blocks a score from landing.
 
-Anonymous players' achievements live client-side and migrate into the account when they [upgrade to a verified sign-in](/api/authentication#upgrading-anonymous-verified-account-linking); a signed-in player's achievements are stored against their account and follow them across devices.
+Anonymous players' achievements are stored server-side too, against their anonymous profile — the only wrinkle is timing (see the tip below: the profile has to exist first). When an anonymous player [upgrades to a verified sign-in](/api/authentication#upgrading-anonymous-verified-account-linking), their achievements merge into the account (combined and deduplicated) and follow them across devices from then on. The official SDKs additionally keep a local copy so unlocks earned before the first submit aren't lost — they ride along with it.
 
 ::: tip Unlock after the first score submit
 An anonymous player isn't created on the backend until their first score submit, so unlocks fired before that have no player to attach to. Unlock achievements once a score has landed for that player — or queue them during play and flush them (as a batch) right after the submit succeeds.

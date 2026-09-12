@@ -58,7 +58,7 @@ The rule is the same on both: **3–16 characters, letters, digits, and undersco
 - A genuinely **invalid** name is rejected with one of: `Nickname must be at least 3 characters`, `Nickname must be 16 characters or less`, `Nickname can only contain letters, numbers, and underscores`. That rejection is permanent for that value — ask for a different name rather than retrying.
 
 ::: warning An anonymous player must exist server-side before a rename sticks
-An anonymous player isn't created on the backend until their **first score submit**. Change a nickname before that and there's no server record to update — the change applies locally and is overwritten by the login nickname on the next submit. Offer the rename after the first score has landed. (The official SDKs mirror this: a pre-submit `ChangeNickname` updates the cached name only; once a profile exists, the same call persists to the server.)
+An anonymous player isn't created on the backend until their **first score submit** — before that there's no server record for the nickname endpoint to update. Two clean ways to name a brand-new player: include `nickname` in their **first score submit** (a submit that carries the field sets the name — see [Scores](/quickstart/rest#nicknames)), or leave them as "Guest" and offer the rename once the first score has landed. (In the official SDKs, a pre-profile `ChangeNickname` updates the cached name only and reports it; once a profile exists, the same call persists to the server — so gate your rename UI on the profile having loaded.)
 :::
 
 ## Identity, briefly

@@ -27,6 +27,7 @@ export default defineConfig({
         text: 'Quick start',
         items: [
           { text: 'REST (any engine)', link: '/quickstart/rest' },
+          { text: 'Game jams', link: '/quickstart/jam' },
           { text: 'Godot drop-in', link: '/quickstart/godot' },
           { text: 'Unity', link: '/quickstart/unity' },
           { text: 'Going to production', link: '/quickstart/production' }

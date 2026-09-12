@@ -6,7 +6,7 @@ No OAuth SDKs, no browser popups, no platform-specific branching — every platf
 
 ## Anonymous identity
 
-There's no anonymous "login" call. An anonymous player is a **persistent ID you generate and store client-side** (the official SDKs use `dev_<unixtime>_<random>`). Send it as `playerId` with the API key; the first score submission creates the profile. See the [REST quick start](/quickstart/rest#players--anonymous-identity).
+There's no anonymous "login" call. An anonymous player is a **persistent ID you generate and store client-side** (the official SDKs use `dev_<unixtime>_<random>`). Send it as `playerId` with the API key; the first score submission creates the profile. A submit with no `nickname` field creates the profile **unnamed** — render unnamed players as "Guest" and let them pick a name when they want one; including `nickname` on a submit renames the player, so only send it when they've just chosen (see the [REST quick start](/quickstart/rest#nicknames)).
 
 Anonymous progress is real progress — scores, streaks, plays, and achievements all live server-side and survive an upgrade to a verified account.
 

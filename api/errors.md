@@ -67,6 +67,10 @@ Games don't configure OAuth — there's nothing to register, and no client ID or
 
 If you're seeing an error that mentions client IDs or bundle IDs, you're calling a legacy direct-OAuth path that isn't supported for games. Switch to the device-code flow instead.
 
+### `Unknown endpoint: <method> <path>`
+
+The route doesn't exist — check the [endpoint reference](/quickstart/rest#endpoint-reference) for the exact path. The one people actually hit: there is **no standalone achievements read route** (`GET /players/{id}/achievements` doesn't exist). Achievements are only exposed on the profile — `GET /players/{playerId}/profile` returns them in `gameProfile.achievements`. SDK versions before 2.2.7 called the nonexistent route from `GetAchievements()` / `get_achievements()`; update the SDK or read achievements from the profile.
+
 ### Invalid path segment (HTTP 400)
 
 Game and scoreboard IDs in URL paths must be 1–64 characters of letters, digits, `_` or `-`. Anything else is rejected before reaching the backend. Usually this means a bug in how you build the URL — an unescaped string, an uninitialized buffer, or a stray null byte.

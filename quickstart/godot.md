@@ -42,7 +42,7 @@ func _ready():
     # Wait for the SDK, then log in.
     # submit_score fails until login has completed.
     await CheddaBoards.wait_until_ready()
-    CheddaBoards.login_anonymous("PlayerName")
+    CheddaBoards.login_anonymous()   # no name — see note below
 
 
 # Call from YOUR game-over code, with the final score and streak.
@@ -60,6 +60,14 @@ func _on_leaderboard(entries: Array):
     for e in entries:
         print("#%d %s - %d" % [e.rank, e.nickname, e.score])
 ```
+
+Log in **without** a name: returning players keep the nickname they already
+saved, and brand-new players stay unnamed until they choose one (show them as
+"Guest" — `get_nickname()` returns `""` for this case). Only pass a name to
+`login_anonymous()` when the player has just chosen it, because a passed name
+becomes the current nickname and is written to the server on the next submit —
+overwriting whatever they had. To let players pick or change their name, use
+`change_nickname()` (see [Nicknames](#nicknames)).
 
 That's the whole integration: call `_on_game_over(score, streak)` when a run ends, and `show_leaderboard()` from a button. You're on the board. For anti-cheat, add Step 3.
 
@@ -110,8 +118,9 @@ Anonymous login, score submission, global leaderboards, and anti-cheat play sess
 ### Sign-in
 
 ```gdscript
-# Anonymous — works everywhere, no account needed
-CheddaBoards.login_anonymous("PlayerName")
+# Anonymous — works everywhere, no account needed.
+# Log in nameless: returning players keep their saved nickname (see Step 2).
+CheddaBoards.login_anonymous()
 
 # Google / Apple on any platform, via device code
 CheddaBoards.login_with_device_code()
@@ -135,7 +144,7 @@ Device code sign-in is a **one-time** flow — the session is saved to `user://`
 ```gdscript
 CheddaBoards.submit_score(1000, 5)          # score, streak
 CheddaBoards.get_leaderboard("score", 100)  # "score" or "streak"
-CheddaBoards.get_scoreboard("weekly-scoreboard", 50)
+CheddaBoards.get_scoreboard("weekly", 50)
 CheddaBoards.get_player_rank()
 ```
 
@@ -163,7 +172,7 @@ func _on_game_over(score: int, streak: int):
     Achievements.submit_with_score(score, streak)
 ```
 
-The `Achievements` autoload ships with the example game's achievements and check logic — replace the definitions *and* the `check_*` conditions for your own game. See [Achievements](/api/achievements). Full sync requires a signed-in account; anonymous players' achievements are stored locally and sync once they upgrade.
+The `Achievements` autoload ships with the example game's achievements and check logic — replace the definitions *and* the `check_*` conditions for your own game. See [Achievements](/api/achievements). Achievements sync for anonymous players too: unlocks are stored locally, ride along with the first score submit (a player doesn't exist on the backend until then), and stay delta-synced from there — only new unlocks are ever re-sent. Upgrading to a signed-in account later merges them.
 
 ## Common issues
 

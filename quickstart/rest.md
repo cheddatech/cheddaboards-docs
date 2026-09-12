@@ -41,7 +41,7 @@ There's no "anonymous login" call. An anonymous player is just a **persistent ID
 
 ### Nicknames
 
-One rule everywhere: **3–16 characters, letters, digits, and underscores only** (`A–Z a–z 0–9 _`). This applies to nicknames on submits, both nickname-change endpoints, and sign-in names. An invalid nickname is rejected with a clear `400` — rejection is permanent for that value, so don't retry the same nickname on `nickname_error`; ask the player for another. A nickname that's merely *taken* is handled for you: the backend appends a numeric suffix (`PlayerName` → `PlayerName_1`) and tells you the name it applied.
+One rule everywhere: **3–16 characters, letters, digits, and underscores only** (`A–Z a–z 0–9 _`). This applies to nicknames on submits, both nickname-change endpoints, and sign-in names. On score submits the field is **optional, and presence is meaning**: a submit that includes `nickname` writes it to the player's profile (renaming them), while a submit that omits it leaves the stored name untouched — so only include it when the player has just chosen a name (see §1). An invalid nickname is rejected with a clear `400` — rejection is permanent for that value, so don't retry the same nickname on `nickname_error`; ask the player for another. A nickname that's merely *taken* is handled for you: the backend appends a numeric suffix (`PlayerName` → `PlayerName_1`) and tells you the name it applied.
 
 ## 1. Submit a score
 
@@ -54,10 +54,16 @@ curl -X POST https://api.cheddaboards.com/scores \
     "playerId": "dev_1730000000_1a2b3c4d",
     "gameId": "my-game",
     "score": 1000,
-    "streak": 5,
-    "nickname": "PlayerName"
+    "streak": 5
   }'
 ```
+
+`nickname` is deliberately absent: a submit that includes it **renames the
+player** to that value, while a submit without it keeps whatever name they
+have. Include `"nickname"` only on the submit right after the player chose a
+name (or use the nickname-change endpoint — see the reference below). A
+brand-new player's first submit with no nickname creates an unnamed profile —
+render those as "Guest" and let them pick a name when they want one.
 
 A successful submit returns:
 
@@ -98,7 +104,6 @@ curl -X POST https://api.cheddaboards.com/scores \
     "gameId": "my-game",
     "score": 1000,
     "streak": 5,
-    "nickname": "PlayerName",
     "scoreboardId": "level-14"
   }'
 ```
@@ -274,8 +279,9 @@ const submit = await post('/scores', {
   gameId: GAME_ID,
   score: 1234,
   streak: 3,
-  nickname: 'PlayerName',
   playSessionToken,
+  // include "nickname" ONLY when the player just chose one —
+  // a submit that carries it renames the player (see Nicknames above)
 });
 if (!submit.ok) console.warn('Score rejected:', submit);
 
@@ -296,7 +302,7 @@ That's a complete integration. Everything else on this page — targeted boards,
 
 | Method | Endpoint | Purpose |
 |--------|----------|---------|
-| `POST` | `/scores` | Submit a score (`playerId`, `gameId`, `score`, `streak`, `nickname`, `playSessionToken?`, `scoreboardId?`). With `scoreboardId`, writes to that one targeted board instead of fanning out. |
+| `POST` | `/scores` | Submit a score (`playerId`, `gameId`, `score`, `streak`, `nickname?`, `playSessionToken?`, `scoreboardId?`). Including `nickname` renames the player; omit it to keep their stored name. With `scoreboardId`, writes to that one targeted board instead of fanning out. |
 | `GET`  | `/leaderboard?sort={score\|streak}&limit={n}` | Global leaderboard |
 | `GET`  | `/games/{gameId}/scoreboards/{scoreboardId}/rank` | A player's rank on a board (session-authenticated) |
 | `GET`  | `/players/{playerId}/profile` | Anonymous player profile |

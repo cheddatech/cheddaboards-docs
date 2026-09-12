@@ -38,6 +38,10 @@ Web builds support every auth method the rest of the SDK does — anonymous, Goo
 
 Neither breaks the game; players just sign in again.
 
+## Where web traffic goes
+
+A web build talks to two hosts: `api.cheddaboards.com` (auth, submits, ranks) and — for leaderboard reads since v2.2.5 — the Internet Computer HTTP gateway directly (`*.raw.icp0.io`), which is what makes board reads CORS-simple with no server of yours. There's nothing to configure: if a network filters the gateway (some corporate/school networks do), the SDK detects it and falls back to the proxy automatically. The only case that needs action is a hosting setup with a strict Content-Security-Policy you control — allow both hosts in `connect-src`. itch.io needs nothing.
+
 ## The exit button on web
 
 `get_tree().quit()` does nothing useful in a browser — it just freezes the canvas. The right move is to navigate somewhere, and *how* depends on whether your game is embedded in an iframe (itch.io serves web games inside one).
@@ -87,4 +91,4 @@ Those `chedda_prompt_name` / `chedda_poll_name` helpers are a small self-contain
 - [ ] `web_exit_url` set on MainMenu (or deliberately left empty to hide Exit on web); drop-in projects use the iframe-aware redirect above
 - [ ] Login and leaderboards tested in the browser
 
-**See also:** [Godot quick start](/quickstart/godot) · [Godot 4 guide](/engines/godot-4) · [Authentication](/api/authentication) · [REST API](/quickstart/rest)
+**See also:** [Godot quick start](/quickstart/godot) · [Godot 4 guide](/engines/godot-4) · [Authentication](/api/authentication) · [REST API](/quickstart/rest) · [Game jams](/quickstart/jam)

@@ -11,6 +11,8 @@
 
 Copy `CheddaBoards.cs` from the [CheddaBoards-Unity repo](https://github.com/cheddatech/CheddaBoards-Unity) into your project, e.g. `Assets/Scripts/CheddaBoards.cs`. That's the whole install — the SDK auto-creates its own singleton `GameObject` with `DontDestroyOnLoad`, so there's no scene setup.
 
+Prefer to start from a working example? The repo's [`Demo/`](https://github.com/cheddatech/CheddaBoards-Unity/tree/main/Demo) folder contains **CheddaClick**, a complete one-script game showing login, guest flow, play sessions, score submit, leaderboard render, and delta-synced achievements.
+
 ## Step 2 — Configure and log in
 
 ```csharp
@@ -28,12 +30,20 @@ public class Leaderboards : MonoBehaviour
         cb.OnLoginSuccess += (nickname) => Debug.Log($"Welcome {nickname}!");
         cb.OnScoreSubmitted += (score, streak) => Debug.Log($"Saved: {score}");
 
-        cb.LoginAnonymous("PlayerName");
+        cb.LoginAnonymous();   // no name — see below
     }
 }
 ```
 
 `LoginAnonymous` gets the player onto the board instantly with a persistent device ID — no account needed. Submitting a score before login completes fails, so submit from your game-over code, not before `OnLoginSuccess`.
+
+Log in **without** a name: returning players keep the nickname they already
+saved, and brand-new players stay unnamed until they choose one (show them as
+"Guest" — `GetNickname()` returns `""` for this case). Only pass a name to
+`LoginAnonymous` when the player has just chosen it, because a passed name
+becomes the current nickname and is written to the server on the next submit —
+overwriting whatever they had. To let players pick or change their name, use
+`ChangeNickname()` (see [Nicknames](#nicknames)).
 
 ## Step 3 — Submit a score
 

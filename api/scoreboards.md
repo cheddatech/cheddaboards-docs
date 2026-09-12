@@ -38,7 +38,7 @@ GET /games/{gameId}/scoreboards/{scoreboardId}?limit={n}
 Works for any board — all-time, a timed board, or a targeted category board — they read identically:
 
 ```bash
-curl "https://api.cheddaboards.com/games/my-game/scoreboards/weekly-scoreboard?limit=100" \
+curl "https://api.cheddaboards.com/games/my-game/scoreboards/weekly?limit=100" \
   -H "X-API-Key: cb_my-game_xxxxxxxxx" \
   -H "X-Game-ID: my-game"
 ```
@@ -50,7 +50,7 @@ The response includes the board's `config` (name, reset period, sort settings, p
 The same board read is served directly by the canister, no proxy involved and no API key needed:
 
 ```bash
-curl "https://fdvph-sqaaa-aaaap-qqc4a-cai.raw.icp0.io/games/my-game/scoreboards/weekly-scoreboard?limit=100"
+curl "https://fdvph-sqaaa-aaaap-qqc4a-cai.raw.icp0.io/games/my-game/scoreboards/weekly?limit=100"
 ```
 
 Byte-identical JSON, browser-safe (`Access-Control-Allow-Origin: *`). Use it for read-only surfaces — kiosks, overlays, companion pages — that should keep working regardless of the API layer. See [the quick start](/quickstart/rest#reading-boards-straight-from-the-chain).

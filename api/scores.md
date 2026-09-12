@@ -25,7 +25,7 @@ POST https://api.cheddaboards.com/scores
 | `gameId` | string | yes | Your Game ID (also sent as the header) |
 | `score` | number | yes | The run's score |
 | `streak` | number | yes | The run's streak (send `0` if your game has no streak concept) |
-| `nickname` | string | no | Applied if valid; see [nicknames](#nicknames) |
+| `nickname` | string | no | **Presence is meaning**: included → renames the player; omitted → stored name untouched. See [nicknames](#nicknames) |
 | `playSessionToken` | string | no | From `/play-sessions/start`; required only if the game has time validation on |
 | `scoreboardId` | string | no | Present → targeted submit to that one board; absent → fan-out. See [targeted submits](#targeted-submits) |
 
@@ -74,7 +74,9 @@ Full treatment: [Category boards](/concepts/category-boards).
 
 ## Nicknames
 
-An optional `nickname` on a submit is applied subject to the rule **3–16 characters, letters, digits, and underscores** (`A–Z a–z 0–9 _`). A **taken** name isn't an error — it's auto-suffixed (`Chedz` → `Chedz_1`). A genuinely **invalid** name is rejected and the player keeps their existing or default (`Player_<n>`) name. See [Errors → nickname](/api/errors#nickname-rejected).
+`nickname` on a submit is optional, and **presence is meaning**: a submit that includes it renames the player to that value, while a submit that omits it leaves the stored name untouched. So don't send it on every submit — send it only when the player has just chosen a name. The one place it's the natural tool: a brand-new player's **first** submit, which creates their profile — include `nickname` there and the profile is born named; omit it and the profile is created unnamed (render those as "Guest", and rename later via the [nickname endpoints](/api/players#change-a-nickname)).
+
+When present, it's applied subject to the rule **3–16 characters, letters, digits, and underscores** (`A–Z a–z 0–9 _`). A **taken** name isn't an error — it's auto-suffixed (`Chedz` → `Chedz_1`). A genuinely **invalid** name is rejected and the player keeps their existing name (or stays unnamed). See [Errors → nickname](/api/errors#nickname-rejected).
 
 ## Anti-cheat & time validation
 
@@ -88,6 +90,6 @@ A score that trips a cap or time check is rejected with a generic `"rejected by 
 
 ## Retry safety
 
-Submits are safe to retry. The backend keeps per-player bests, so resending a score after a timeout can never lower a score or streak — no client-side dedupe needed. The one thing a duplicate submit moves is the player's play count, so avoid blind retry *loops* if play counts matter to you.
+Submits are safe to retry. The backend keeps per-player bests, so resending a score after a timeout can never lower a score or streak — no client-side dedupe needed. Play counts are also protected against quick duplicates: repeat submits from the same player within a few seconds count as one play, so an immediate retry is fully safe. Only well-spaced duplicates move the play count — avoid long-running blind retry *loops* if play counts matter to you.
 
 **See also:** [REST quick start](/quickstart/rest) · [Scoreboards](/api/scoreboards) · [Category boards](/concepts/category-boards) · [Errors](/api/errors) · [What's stored](/concepts/data-model)
