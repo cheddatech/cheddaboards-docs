@@ -1,3 +1,7 @@
+---
+description: Add a free global leaderboard to your jam game in minutes — Godot, Unity, or plain HTTP. No player accounts, works in itch.io web builds, and the board keeps running after the jam.
+---
+
 # Game jams
 
 **A global leaderboard for your jam game, in the time it takes your coffee to brew.** Free, no player accounts, works in web builds on itch.io — and the board keeps running long after the jam ends.
@@ -61,27 +65,37 @@ Full walkthrough (and a complete demo game to crib from): [Unity quick start](/q
 
 Bevy, Love2D, PICO-8 exports, hand-rolled JS — if it can POST JSON, it can have a leaderboard. Generate a persistent player ID client-side, then:
 
-```
-POST /scores          { playerId, gameId, score, streak }
-GET  /leaderboard?sort=score&limit=10
+```bash
+# submit a score
+curl -X POST https://api.cheddaboards.com/scores \
+  -H "X-API-Key: cb_my-jam-game_xxxxxxxxx" \
+  -H "X-Game-ID: my-jam-game" \
+  -H "Content-Type: application/json" \
+  -d '{"playerId": "player_001", "gameId": "my-jam-game", "score": 1500, "streak": 5}'
+
+# read the board
+curl "https://api.cheddaboards.com/leaderboard?sort=score&limit=10" \
+  -H "X-API-Key: cb_my-jam-game_xxxxxxxxx" \
+  -H "X-Game-ID: my-jam-game"
 ```
 
-That's the entire required surface. [REST quick start](/quickstart/rest).
+Generate `playerId` once, store it locally, reuse it — that's the whole identity model. Full surface: [REST quick start](/quickstart/rest).
 
 ## Jam checklist
 
-- [ ] **Register the game before the jam starts** — [cheddaboards.com](https://cheddaboards.com/developers) takes a minute, but it's a minute you won't want at hour 47. (Registering a game ahead of a jam breaks no jam rule anywhere — it's infrastructure, not gameplay.)
+- [ ] **Register the game before the jam starts** — [cheddaboards.com](https://cheddaboards.com/developers) takes a minute, but it's a minute you won't want at hour 47. (It's infrastructure, not gameplay — the same as making your itch page ahead of time, and fine under standard jam rules. If your jam is unusually strict about pre-work, check its rules page.)
 - [ ] Log in **nameless** (`login_anonymous()` with no argument) — players keep any name they set, and unnamed players show as "Guest"
 - [ ] Submit only **after** login completes (from game-over code, not before `login_success` / `OnLoginSuccess`)
 - [ ] Web export: the file must be `index.html`, and test it served (`python3 -m http.server`), never from `file://`
 - [ ] Turn `debug_logging` off before you build
 - [ ] Put the leaderboard **on the game-over screen**, not behind a menu — raters should trip over it
+- [ ] Show the current **#1 score next to the player's** on that screen ("Best: 48,200 — beat it?") — that line is the replay trigger
 
 ## Jam-shaped details
 
-**Need more than 3 game slots for a jam?** The free tier is 3 games; hit **Request More Slots** in the dashboard and mention it's for a jam — jam requests get bumped.
-
 **Rate limits won't bite you.** Submits are throttled at one per player per board every 2 seconds — a normal game-over loop never notices. If you're doing something weirder (per-kill submits, presence heartbeats — [it's been done](/concepts/category-boards)), targeted boards are throttled per board, so spreading writes is fine.
+
+**Rating-day traffic is nothing to plan for.** A front-page itch spike needs nothing from you — no quotas to raise, no config to change, no bill at the end.
 
 **Anti-cheat is optional and probably worth skipping at first.** Play sessions and time validation exist ([Anti-cheat](/concepts/anti-cheat)) and jam leaderboards do attract the occasional 999999999. For a 48-hour jam, ship without it and turn on score caps from the dashboard's Security tab if someone misbehaves — no code change needed for caps. Add play sessions if you keep the game alive after.
 
