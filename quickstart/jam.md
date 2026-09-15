@@ -29,7 +29,7 @@ func _ready():
     CheddaBoards.set_game_id("my-jam-game")
     CheddaBoards.leaderboard_loaded.connect(_on_leaderboard)
     await CheddaBoards.wait_until_ready()
-    CheddaBoards.login_anonymous()   # nameless — players stay "Guest" until they pick a name
+    CheddaBoards.login_anonymous()   # nameless — the server names new players (Player_1248) until they pick one
 
 func _on_game_over(score: int, streak: int):
     CheddaBoards.submit_score(score, streak)
@@ -84,7 +84,7 @@ Generate `playerId` once, store it locally, reuse it — that's the whole identi
 ## Jam checklist
 
 - [ ] **Register the game before the jam starts** — [cheddaboards.com](https://cheddaboards.com/developers) takes a minute, but it's a minute you won't want at hour 47. (It's infrastructure, not gameplay — the same as making your itch page ahead of time, and fine under standard jam rules. If your jam is unusually strict about pre-work, check its rules page.)
-- [ ] Log in **nameless** (`login_anonymous()` with no argument) — players keep any name they set, and unnamed players show as "Guest"
+- [ ] Log in **nameless** (`login_anonymous()` with no argument) — players keep any name they set, and new players get a generated `Player_1248`-style name automatically
 - [ ] Submit only **after** login completes (from game-over code, not before `login_success` / `OnLoginSuccess`)
 - [ ] Web export: the file must be `index.html`, and test it served (`python3 -m http.server`), never from `file://`
 - [ ] Turn `debug_logging` off before you build

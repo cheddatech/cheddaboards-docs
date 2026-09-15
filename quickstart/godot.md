@@ -62,8 +62,10 @@ func _on_leaderboard(entries: Array):
 ```
 
 Log in **without** a name: returning players keep the nickname they already
-saved, and brand-new players stay unnamed until they choose one (show them as
-"Guest" — `get_nickname()` returns `""` for this case). Only pass a name to
+saved, and brand-new players get a server-assigned name (`Player_1248`) when
+their first submit creates the profile. `get_nickname()` returns `""`
+until a profile fetch or rename has told the SDK the name — fetch the
+profile after the first submit if you want to display or highlight it. Only pass a name to
 `login_anonymous()` when the player has just chosen it, because a passed name
 becomes the current nickname and is written to the server on the next submit —
 overwriting whatever they had. To let players pick or change their name, use

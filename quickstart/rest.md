@@ -62,8 +62,8 @@ curl -X POST https://api.cheddaboards.com/scores \
 player** to that value, while a submit without it keeps whatever name they
 have. Include `"nickname"` only on the submit right after the player chose a
 name (or use the nickname-change endpoint — see the reference below). A
-brand-new player's first submit with no nickname creates an unnamed profile —
-render those as "Guest" and let them pick a name when they want one.
+brand-new player's first submit with no nickname creates the profile with a
+server-generated name (`Player_1248`) — stable until they pick their own.
 
 A successful submit returns:
 

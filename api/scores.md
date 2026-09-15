@@ -74,9 +74,9 @@ Full treatment: [Category boards](/concepts/category-boards).
 
 ## Nicknames
 
-`nickname` on a submit is optional, and **presence is meaning**: a submit that includes it renames the player to that value, while a submit that omits it leaves the stored name untouched. So don't send it on every submit — send it only when the player has just chosen a name. The one place it's the natural tool: a brand-new player's **first** submit, which creates their profile — include `nickname` there and the profile is born named; omit it and the profile is created unnamed (render those as "Guest", and rename later via the [nickname endpoints](/api/players#change-a-nickname)).
+`nickname` on a submit is optional, and **presence is meaning**: a submit that includes it renames the player to that value, while a submit that omits it leaves the stored name untouched. So don't send it on every submit — send it only when the player has just chosen a name. The one place it's the natural tool: a brand-new player's **first** submit, which creates their profile — include `nickname` there and the profile is born named; omit it and the profile is created with a server-generated name (`Player_1248`) that stays until renamed via the [nickname endpoints](/api/players#change-a-nickname).
 
-When present, it's applied subject to the rule **3–16 characters, letters, digits, and underscores** (`A–Z a–z 0–9 _`). A **taken** name isn't an error — it's auto-suffixed (`Chedz` → `Chedz_1`). A genuinely **invalid** name is rejected and the player keeps their existing name (or stays unnamed). See [Errors → nickname](/api/errors#nickname-rejected).
+When present, it's applied subject to the rule **3–16 characters, letters, digits, and underscores** (`A–Z a–z 0–9 _`). A **taken** name isn't an error — it's auto-suffixed (`Chedz` → `Chedz_1`). A genuinely **invalid** name is rejected and the player keeps their existing name. See [Errors → nickname](/api/errors#nickname-rejected).
 
 ## Anti-cheat & time validation
 

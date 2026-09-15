@@ -38,8 +38,10 @@ public class Leaderboards : MonoBehaviour
 `LoginAnonymous` gets the player onto the board instantly with a persistent device ID — no account needed. Submitting a score before login completes fails, so submit from your game-over code, not before `OnLoginSuccess`.
 
 Log in **without** a name: returning players keep the nickname they already
-saved, and brand-new players stay unnamed until they choose one (show them as
-"Guest" — `GetNickname()` returns `""` for this case). Only pass a name to
+saved, and brand-new players get a server-assigned name (`Player_1248`) when
+their first submit creates the profile. `GetNickname()` returns `""`
+until a profile fetch or rename has told the SDK the name — fetch the
+profile after the first submit if you want to display or highlight it. Only pass a name to
 `LoginAnonymous` when the player has just chosen it, because a passed name
 becomes the current nickname and is written to the server on the next submit —
 overwriting whatever they had. To let players pick or change their name, use
