@@ -17,6 +17,7 @@ Prefer to start from a working example? The repo's [`Demo/`](https://github.com/
 
 ```csharp
 using UnityEngine;
+using System.Collections.Generic;   // for Dictionary when reading boards (Step 4)
 using CheddaTech;   // the SDK lives in the CheddaTech namespace
 
 public class Leaderboards : MonoBehaviour
@@ -27,7 +28,8 @@ public class Leaderboards : MonoBehaviour
         cb.SetApiKey("cb_my-game_xxxxxxxxx");
         cb.SetGameId("my-game");
 
-        cb.OnLoginSuccess += (nickname) => Debug.Log($"Welcome {nickname}!");
+        cb.OnLoginSuccess += (nickname) =>
+            Debug.Log($"Welcome {(string.IsNullOrEmpty(nickname) ? "Guest" : nickname)}!");
         cb.OnScoreSubmitted += (score, streak) => Debug.Log($"Saved: {score}");
 
         cb.LoginAnonymous();   // no name — see below
@@ -35,7 +37,7 @@ public class Leaderboards : MonoBehaviour
 }
 ```
 
-`LoginAnonymous` gets the player onto the board instantly with a persistent device ID — no account needed. Submitting a score before login completes fails, so submit from your game-over code, not before `OnLoginSuccess`.
+`LoginAnonymous` gets the player onto the board instantly with a persistent device ID — no account needed. It completes immediately: `OnLoginSuccess` fires during the call, so subscribe to events *before* calling it, as above. If no API key has been set, it fires `OnLoginFailed` instead. A brand-new player logged in without a name receives an empty string, so show "Guest" until they have one.
 
 Log in **without** a name: returning players keep the nickname they already
 saved, and brand-new players get a server-assigned name (`Player_1248`) when
@@ -96,6 +98,8 @@ void OnGameOver(int score, int streak)
 }
 ```
 
+`StartPlaySession()` is asynchronous: the token arrives a moment later via `OnPlaySessionStarted` (or `OnPlaySessionError` if it fails). A submit sent before then goes without a token. That's only a risk for very short runs, but if your game can end within a second or two of starting, check `CheddaBoards.Instance.HasPlaySession()` before submitting, or wait for `OnPlaySessionStarted` before letting the run begin.
+
 Set the actual limits (score caps, time validation) from your dashboard's Security tab — see [Anti-cheat](/concepts/anti-cheat). Without a session, scores still submit — unless the game has time validation enabled, in which case the session token is **required** and sessionless submits are rejected.
 
 ## Signing in with Google / Apple (optional)
@@ -150,12 +154,13 @@ The events you'll connect to most:
 | `OnScoreSubmitted` | `score, streak` |
 | `OnScoreSubmittedToBoard` | `boardId, score, streak` |
 | `OnScoreError` | `error` |
-| `OnScoreboardLoaded` | `id, config, entries` |
+| `OnScoreboardLoaded` / `OnScoreboardError` | `id, config, entries` / `error` |
 | `OnScoreboardRankLoaded` | `id, rank, score, streak, total` |
 | `OnAchievementUnlocked` / `OnAchievementsLoaded` | `achievementId` / `achievements` |
-| `OnPlaySessionStarted` | `token` |
+| `OnPlaySessionStarted` / `OnPlaySessionError` | `token` / `error` |
 | `OnDeviceCodeReceived` | `code, url, qrDataUrl` |
 | `OnDeviceCodeApproved` / `OnDeviceCodeExpired` | `nickname` / — |
+| `OnDeviceCodeError` | `error` |
 | `OnAccountUpgraded` | `oldProfile, newProfile` |
 | `OnProfileLoaded` | `nickname, score, streak, achievements, playCount` |
 | `OnNicknameChanged` / `OnNicknameError` | `nickname` / `error` |
@@ -167,11 +172,11 @@ Full method and event reference lives in the [SDK repo README](https://github.co
 
 | Issue | Fix |
 |-------|-----|
-| "Not authenticated" on submit | Submit ran before login finished — submit from `OnLoginSuccess` or later, not before |
+| "Not authenticated" on submit | `LoginAnonymous()` wasn't called, or failed because no API key was set (check `OnLoginFailed`). With device code, wait for `OnDeviceCodeApproved` before submitting |
 | Leaderboard fires twice | You subscribed to `OnScoreboardLoaded` inside a method that runs repeatedly — subscribe once, in `Start()` |
-| Empty leaderboard | Confirm your Game ID matches the dashboard, and that the board ID exists |
-| Score rejected | Start a play session before the run so the backend can time-validate it — check `OnScoreError` for the reason |
-| WebGL build can't read boards | Direct canister reads are CORS-simple; if you proxy your own hosting, allow `api.cheddaboards.com` |
+| Empty leaderboard | Confirm your Game ID matches the dashboard, and that the board ID exists. `OnScoreboardError` reports the reason |
+| Score rejected | Start a play session before the run so the backend can time-validate it, and make sure it had started (`OnPlaySessionStarted`) before the submit. Check `OnScoreError` for the reason |
+| WebGL build can't reach CheddaBoards | If the page hosting your build sets a Content-Security-Policy, add `https://api.cheddaboards.com` and `https://fdvph-sqaaa-aaaap-qqc4a-cai.raw.icp0.io` (direct board reads) to `connect-src` |
 
 Full error reference: [Errors](/api/errors).
 
