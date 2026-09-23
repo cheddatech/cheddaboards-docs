@@ -35,3 +35,7 @@ A pre-release pass for games shipping with CheddaBoards. Everything on this list
 - **Web export tested where it will actually live.** Run it inside the itch.io (or portal) iframe on a real phone — exit behaviour, touch scrolling and safe areas are covered in [Web export](/engines/web-export).
 
 Then, before you hit publish: one full run on a completely wiped install — fresh anonymous player → play → submit → sign in → confirm the merge.
+
+## After launch
+
+- **Bookmark the [status page](https://status.cheddatech.com).** If players report missing scores, check it before you start debugging your own code. It tracks the API and the on-chain leaderboards separately, so you can tell at a glance whether submits or reads are affected.

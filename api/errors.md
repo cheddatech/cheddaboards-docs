@@ -17,7 +17,7 @@ Check `ok` before reading `data`, and surface `error` when it's false.
 | `401` / `403` | Session token is dead (expired, logged out, or account removed) | Discard the stored session and fall back to sign-in — see [Authentication](/api/authentication) |
 | `404` | Route or resource not found | For scoreboard lookups this is normal — the board just isn't configured |
 | `428` | Device-code auth still pending | Keep polling (every 5s) |
-| `5xx` | Transient upstream problem | Retry with backoff — [submits are safe to retry](/quickstart/rest#notes) |
+| `5xx` | Transient upstream problem | Retry with backoff — [submits are safe to retry](/quickstart/rest#notes). Persistent? Check [status.cheddatech.com](https://status.cheddatech.com) |
 
 ## Common errors
 
@@ -81,6 +81,8 @@ Sessions last 30 days and renew on use, so active players stay signed in indefin
 
 ## When it's not you
 
+First stop: **[status.cheddatech.com](https://status.cheddatech.com)**. It checks the API, the on-chain leaderboards, the website and these docs every few minutes from outside CheddaBoards' own infrastructure, and any outage shows there with its history.
+
 Occasionally the chain itself has a transient wobble (a subnet replica upgrade, for example) and you'll see a `5xx` for a few seconds. Submits are [safe to retry](/quickstart/rest#notes), so a single retry with a short backoff covers it. If the API is unreachable entirely, board *reads* still work [directly from the canister](/quickstart/rest#reading-boards-straight-from-the-chain).
 
-**See also:** [REST quick start](/quickstart/rest) · [Authentication](/api/authentication) · [Anti-cheat](/concepts/anti-cheat)
+**See also:** [REST quick start](/quickstart/rest) · [Authentication](/api/authentication) · [Anti-cheat](/concepts/anti-cheat) · [Service status](https://status.cheddatech.com)

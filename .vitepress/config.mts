@@ -20,7 +20,8 @@ export default defineConfig({
       { text: 'Quick start', link: '/quickstart/rest' },
       { text: 'API', link: '/api/overview' },
       { text: 'Engines', link: '/engines/godot-4' },
-      { text: 'Dashboard', link: 'https://cheddaboards.com/developers' }
+      { text: 'Dashboard', link: 'https://cheddaboards.com/developers' },
+      { text: 'Status', link: 'https://status.cheddatech.com' }
     ],
     sidebar: [
       {
