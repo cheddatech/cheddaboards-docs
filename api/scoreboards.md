@@ -43,7 +43,23 @@ curl "https://api.cheddaboards.com/games/my-game/scoreboards/weekly?limit=100" \
   -H "X-Game-ID: my-game"
 ```
 
-The response includes the board's `config` (name, reset period, sort settings, period timestamps) alongside its ranked `entries`.
+```json
+{
+  "ok": true,
+  "data": {
+    "scoreboardId": "weekly",
+    "config": { "name": "weekly", "description": "", "period": "weekly",
+                "sortBy": "score", "lastReset": 1789948800000000000 },
+    "entries": [
+      { "rank": 1, "nickname": "Player_2519", "score": 500, "streak": 0,
+        "authType": "external", "submittedAt": 1790157891387042954 }
+    ],
+    "totalEntries": 1
+  }
+}
+```
+
+`config` describes the board (`period` is its reset cadence, `lastReset` when the current period began), `entries` are ranked, and `totalEntries` is the board's full size, handy when you've asked for fewer with `limit`. Each entry adds `submittedAt` to the fields above: when that best was set, in nanoseconds. Field-by-field, including the archive variant: [Timed leaderboards → the config dictionary](/concepts/timed-leaderboards#the-config-dictionary).
 
 ### Reading straight from the chain
 
@@ -69,7 +85,7 @@ When a timed board resets, its final standings are archived. Read them back:
 
 | Endpoint | Returns |
 |----------|---------|
-| `GET /games/{gameId}/scoreboards/{id}/archives` | List of archived periods for a board |
+| `GET /games/{gameId}/scoreboards/{id}/archives` | List of archived periods for a board (add `?after=&before=` nanosecond timestamps to filter a date range) |
 | `GET /games/{gameId}/scoreboards/{id}/archives/latest` | The most recent archive |
 | `GET /archives/{archiveId}` | One specific archive (`gameId:scoreboardId:timestamp`) |
 | `GET /games/{gameId}/archives/stats` | Archive statistics for the game |
@@ -83,7 +99,7 @@ Board reads are edge-cached for about 30 seconds, so polling faster than that re
 ## Notes
 
 - A `404` on a board lookup is normal — it means the board isn't configured for the game.
-- `limit` caps how many entries come back; omit it for the default.
+- `limit` caps how many entries come back; omit it for the default. Through the API the maximum is **1,000**; the direct canister read isn't capped.
 - Board and game IDs in the path must be 1–64 chars of `[A-Za-z0-9_-]` or the request is rejected with a `400`.
 
 **See also:** [Scores](/api/scores) · [Category boards](/concepts/category-boards) · [Timed leaderboards](/concepts/timed-leaderboards) · [REST quick start](/quickstart/rest)

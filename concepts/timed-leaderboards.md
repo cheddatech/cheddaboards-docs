@@ -63,7 +63,7 @@ When a timed board resets, its final standings are snapshotted into an **archive
 
 | Endpoint | Returns |
 |----------|---------|
-| `GET /games/{gameId}/scoreboards/{id}/archives` | List of archived periods for a board |
+| `GET /games/{gameId}/scoreboards/{id}/archives` | List of archived periods for a board (add `?after=&before=` nanosecond timestamps to filter a date range) |
 | `GET /games/{gameId}/scoreboards/{id}/archives/latest` | The most recent archive (last week / yesterday / last month) |
 | `GET /archives/{archiveId}` | One specific archive |
 | `GET /games/{gameId}/archives/stats` | Archive statistics for the game |
@@ -105,16 +105,42 @@ The archive signals are in the [signals reference](/engines/godot-signals#scoreb
 
 ### The config dictionary
 
-Archive and scoreboard reads carry a `config` describing the board and period:
+Scoreboard and archive reads both carry a `config`, but with slightly different fields — a live board knows when it last reset, an archive knows the exact period it covers.
+
+**Live board** (`GET /games/{gameId}/scoreboards/{id}`, and the SDK's `scoreboard_loaded`):
 
 ```
-name           display name
-scoreboardId   the board's ID
-resetPeriod    daily | weekly | monthly | custom | never
-sortBy         score | streak
-sortDirection  desc (high first) | asc
-periodStart    nanosecond timestamp
-periodEnd      nanosecond timestamp
+name          display name
+description   board description ("" if none)
+period        the reset cadence: allTime, weekly, …
+sortBy        score | streak
+lastReset     nanosecond timestamp of the current period's start
+```
+
+**Archive** (`…/archives/latest`, `/archives/{archiveId}`, and the SDK's `archived_scoreboard_loaded`):
+
+```
+name          display name
+period        the cadence of the board it came from
+sortBy        score | streak
+periodStart   nanosecond timestamp — when the archived period began
+periodEnd     nanosecond timestamp — when it ended (the reset moment)
+```
+
+An archive response also carries its `archiveId` alongside `config`, and both kinds return `entries` plus a `totalEntries` count. Real example, trimmed:
+
+```json
+{
+  "ok": true,
+  "data": {
+    "archiveId": "my-game:weekly:1789344976813703772",
+    "config": { "name": "weekly", "period": "weekly", "sortBy": "score",
+                "periodStart": 1788739200000000000, "periodEnd": 1789344976813703772 },
+    "entries": [ { "rank": 1, "nickname": "Chedz", "score": 5148, "streak": 4,
+                   "authType": "external", "submittedAt": 1788964834738168040 } ],
+    "totalEntries": 1
+  }
+}
 ```
 
 Timestamps are nanoseconds since epoch — divide by 1,000,000,000 for seconds before handing to `Time.get_datetime_dict_from_unix_time()`.

@@ -58,12 +58,11 @@ curl -X POST https://api.cheddaboards.com/scores \
     "gameId": "my-game",
     "score": 1000,
     "streak": 5,
-    "nickname": "PlayerName",
     "scoreboardId": "level-14"
   }'
 ```
 
-On success the response confirms the board: `"Submitted to level-14 - Score: 1000, Streak: 0"`. If time validation is enabled, include a `playSessionToken` exactly as for a normal submit — targeted submits go through the same anti-cheat gate. Full mechanics: [REST quick start](/quickstart/rest#submitting-to-one-specific-board-category-targeted-scoreboards).
+On success the response confirms the board: `"✅ Submitted to level-14 - Score: 1000, Streak: 5"`. If time validation is enabled, include a `playSessionToken` exactly as for a normal submit — targeted submits go through the same anti-cheat gate. Full mechanics: [REST quick start](/quickstart/rest#submitting-to-one-specific-board-category-targeted-scoreboards).
 
 ### Godot
 
@@ -86,6 +85,7 @@ The submission throttle is keyed per board, so these back-to-back calls won't tr
 No different from any other board — same call, same signal, same REST path:
 
 ```gdscript
+CheddaBoards.scoreboard_loaded.connect(_on_scoreboard_loaded)   # once, in _ready()
 CheddaBoards.get_scoreboard("level-14", 100)
 
 func _on_scoreboard_loaded(scoreboard_id, config, entries):
@@ -106,6 +106,7 @@ curl "https://api.cheddaboards.com/games/my-game/scoreboards/level-14?limit=100"
 - **Same anti-cheat.** Play-session / time-validation and rate-limit rules are identical to a plain submit.
 - **Per-board throttle.** The 2-second gate is keyed per (player, game, board), so chaining several board submits in one run is fine.
 - **Must exist and be targeted.** The board has to exist *and* be marked Targeted. Submitting a `scoreboardId` for a board that doesn't exist returns `"Scoreboard '<id>' not found for this game."` — the API never auto-creates a board on submit. See [Errors](/api/errors).
+- **Never target a fan-out board.** Sending the ID of a fan-out board (`all-time`, `weekly`, `daily`…) in `scoreboardId` is rejected — those are updated by a plain submit, so just omit the field.
 
 ## Combining with reset cadence
 

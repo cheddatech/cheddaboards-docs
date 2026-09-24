@@ -46,7 +46,7 @@ Always check `ok` before reading `data`. Status codes and error strings are in [
 |------|-----------|-----------|
 | Submit scores | `POST /scores` | [Scores](/api/scores) |
 | Read boards | `GET /leaderboard`, `GET /games/{id}/scoreboards/...` | [Scoreboards](/api/scoreboards) |
-| Players | `GET /players/{id}/profile`, `/rank`, nickname changes | [Players](/api/players) |
+| Players | `GET /players/{id}/profile`, `GET /players/{id}/rank`, board rank, nickname changes | [Players](/api/players) |
 | Sign-in | `POST /auth/device/code`, `/auth/device/token`, `/migrate-account` | [Authentication](/api/authentication) |
 | Play sessions | `POST /play-sessions/start`, `/end` | [Scores](/api/scores#anti-cheat-time-validation) |
 | Achievements | `POST /achievements` | [Achievements](/api/achievements) |

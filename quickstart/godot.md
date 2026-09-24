@@ -16,7 +16,7 @@ The full template is a working Godot 4 project with an example game, menus, and 
 
 **Recommended — the [Godot Asset Store](https://store.godotengine.org/asset/cheddatech/cheddaboards) package.** It's the addon-only build and ships the editor plugin files: drop `addons/cheddaboards/` into your project, enable **CheddaBoards** under **Project → Project Settings → Plugins**, and the autoload registers itself. Done.
 
-**Alternatively — from [GitHub](https://github.com/cheddatech/cheddaboards-godot).** The repo is the full template; copy just the `addons/cheddaboards/` folder out of it. That copy has no plugin files, so register the autoload yourself — either run the wizard (`File → Run → addons/cheddaboards/SetupWizard.gd`) or add it manually under **Project → Project Settings → Autoload**:
+**Alternatively — from [GitHub](https://github.com/cheddatech/cheddaboards-godot-addon).** The addon repo is the SDK's canonical home: copy its `addons/cheddaboards/` folder into your project and enable the plugin exactly as above. (The [template repo](https://github.com/cheddatech/cheddaboards-godot) vendors the same addon, but if you copy the folder out of the template instead, register the autoload yourself.) To register it by hand, run the wizard (`File → Run → addons/cheddaboards/SetupWizard.gd`) or add it under **Project → Project Settings → Autoload**:
 
 ```
 Name: CheddaBoards
@@ -109,7 +109,11 @@ func _on_session_error(reason: String):
     push_warning("Play session error: %s" % reason)
 ```
 
-Set the actual limits (max score per submission, streak caps) from your dashboard's **Security** tab — see [Anti-cheat](/concepts/anti-cheat). Skip the session entirely and scores still submit — unless you've enabled time validation for the game, in which case the session token is **required** and sessionless submits are rejected. (The SDK runs the session lifecycle for you, so with the autoload in place you're already covered.)
+Set the actual limits (max score per submission, streak caps) from your dashboard's **Security** tab — see [Anti-cheat](/concepts/anti-cheat). Skip the session entirely and scores still submit — unless you've enabled time validation for the game, in which case the session token is **required** and sessionless submits are rejected.
+
+::: warning Drop-in means you start the session
+The SDK attaches the token for you, but it does **not** start or end sessions on its own — on this path, the three calls above are yours to make. (The [template's](/engines/godot-4) game wrapper is what runs the lifecycle automatically.)
+:::
 
 ## Done
 
@@ -167,14 +171,27 @@ Nicknames are **3–16 characters, letters, digits, and underscores**. A name th
 
 ### Achievements (optional)
 
+You decide when an achievement is earned; the SDK stores it. The safest pattern is to send a run's unlocks **with the score**:
+
 ```gdscript
 func _on_game_over(score: int, streak: int):
-    Achievements.increment_games_played()
-    Achievements.check_game_over(score, 0, streak)
-    Achievements.submit_with_score(score, streak)
+    var earned := []
+    if score >= 1000:
+        earned.append("score_1000")
+    if streak >= 5:
+        earned.append("streak_5")
+    # Submits the score first, then syncs the achievements once it's saved.
+    CheddaBoards.submit_score_with_achievements(score, streak, earned)
+
+# Fires once per achievement the server confirms.
+CheddaBoards.achievement_unlocked.connect(func(id): print("Unlocked: ", id))
 ```
 
-The `Achievements` autoload ships with the example game's achievements and check logic — replace the definitions *and* the `check_*` conditions for your own game. See [Achievements](/api/achievements). Achievements sync for anonymous players too: unlocks are stored locally, ride along with the first score submit (a player doesn't exist on the backend until then), and stay delta-synced from there — only new unlocks are ever re-sent. Upgrading to a signed-in account later merges them.
+For a brand-new anonymous player, the score submit is what creates them on the backend — which is why achievements ride along with it rather than going first. Once the player exists, `CheddaBoards.unlock_achievement("id")` (or `unlock_achievements_batch([...])`) unlocks mid-run too. Re-sending an achievement the player already has is harmless. Upgrading to a signed-in account later merges them. See [Achievements](/api/achievements).
+
+::: tip Want auto-unlocks, popups and offline caching?
+That's the `Achievements` autoload, which ships with the [template](/engines/godot-4) rather than the addon. You can copy `autoloads/Achievements.gd` out of the template into your project — then replace its definitions *and* its `check_*` conditions with your own game's.
+:::
 
 ## Common issues
 

@@ -85,7 +85,7 @@ signal play_session_started(token: String)
 signal play_session_error(reason: String)
 ```
 
-`play_session_error` is non-fatal — the score still submits, it just won't be time-validated. See [Anti-cheat](/concepts/anti-cheat).
+`play_session_error` is non-fatal — the score still submits, it just won't be time-validated. The exception: if you've enabled **time validation** for the game, the session token is required and a submit without one is rejected. See [Anti-cheat](/concepts/anti-cheat).
 
 ### Account upgrade (anonymous → verified)
 
@@ -115,10 +115,12 @@ signal device_code_error(reason: String)
 signal request_failed(endpoint: String, error: String)
 ```
 
-## Achievements.gd
+## Achievements.gd (template only)
+
+The `Achievements` autoload ships with the [template](/engines/godot-4), not the addon. If you're on the drop-in SDK, you only need `CheddaBoards.achievement_unlocked` above.
 
 ```gdscript
-signal achievement_unlocked(achievement_id: String, achievement_name: String)
+signal achievement_unlocked(id: String, name: String)
 signal achievements_ready()
 ```
 

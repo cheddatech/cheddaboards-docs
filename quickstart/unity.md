@@ -4,7 +4,7 @@
 
 ## Before you start
 
-- **Unity** (any recent version — the SDK is pure `UnityWebRequest`, no packages).
+- **Unity 2022.3 LTS or newer** — the SDK is pure `UnityWebRequest`, no packages.
 - **A CheddaBoards game** — register at [cheddaboards.com](https://cheddaboards.com/developers) for a Game ID and API key.
 
 ## Step 1 — Add the SDK
@@ -161,7 +161,7 @@ The events you'll connect to most:
 | `OnDeviceCodeReceived` | `code, url, qrDataUrl` |
 | `OnDeviceCodeApproved` / `OnDeviceCodeExpired` | `nickname` / — |
 | `OnDeviceCodeError` | `error` |
-| `OnAccountUpgraded` | `oldProfile, newProfile` |
+| `OnAccountUpgraded` | `profile, migration` (`migratedGames` / `migratedScoreboards`) |
 | `OnProfileLoaded` | `nickname, score, streak, achievements, playCount` |
 | `OnNicknameChanged` / `OnNicknameError` | `nickname` / `error` |
 | `OnArchivedScoreboardLoaded` | `archiveId, config, entries` |

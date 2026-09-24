@@ -1,6 +1,6 @@
 # Anti-cheat
 
-Anti-cheat is built in and server-side. You set the limits from your dashboard and CheddaBoards enforces them on every submission — no game code required for caps and validation. **Play sessions**, which let the server check a score against real elapsed play time, are the one piece that touches your client (handled automatically by the official SDKs, a few calls on the REST path).
+Anti-cheat is built in and server-side. You set the limits from your dashboard and CheddaBoards enforces them on every submission — no game code required for caps and validation. **Play sessions**, which let the server check a score against real elapsed play time, are the one piece that touches your client: a few calls around each run (the Godot template's wrapper makes them for you).
 
 | Protection | How it works |
 |------------|--------------|
@@ -30,7 +30,7 @@ The lifecycle over REST:
 2. `POST /scores` with `"playSessionToken": "<token>"` in the body
 3. `POST /play-sessions/end`
 
-Full worked example: [REST quick start §4](/quickstart/rest#_4-anti-cheat-play-sessions-recommended). The official SDKs do all three for you — see the [Godot guide](/engines/godot-4).
+Full worked example: [REST quick start §4](/quickstart/rest#_4-anti-cheat-play-sessions-recommended). The SDKs attach the token to every submit for you, but you start and end the session yourself — `start_play_session()` / `StartPlaySession()` when the run begins, `clear_play_session()` / `EndPlaySession()` after the submit (see the [Godot quick start](/quickstart/godot#step-3-anti-cheat-play-sessions-recommended)). On the [Godot template](/engines/godot-4), the game wrapper does all of it.
 
 **If time validation is off**, session tokens are accepted but not checked — submits succeed with or without one. Wire the lifecycle up anyway: it costs nothing while validation is off, and the day you enable it on the dashboard your scores are already protected instead of suddenly rejected.
 

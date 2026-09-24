@@ -13,6 +13,7 @@ One row per player, per board. Reading a board gives you:
 | `score` | The player's **highest** score on that board |
 | `streak` | The player's **highest** streak on that board |
 | `authType` | How the player signed in (e.g. `external` for anonymous / API-key play) |
+| `submittedAt` | When that best was set (nanosecond timestamp) |
 
 A few things worth knowing:
 
@@ -70,7 +71,7 @@ When a timed board resets — weekly at Monday 00:00 UTC, daily at midnight UTC,
 
 ## Play sessions
 
-A play session is a **short-lived server-side token** created for a single run, used to validate the score against elapsed time (anti-cheat). It isn't long-term player data — it exists only around a run and is cleared once the score is submitted or the session expires unused. See [Anti-cheat](/concepts/anti-cheat).
+A play session is a **short-lived server-side token** created for a single run, used to validate the score against elapsed time (anti-cheat). It isn't long-term player data — it exists only around a run and is cleared when the game ends the session after submitting, or when it expires unused. See [Anti-cheat](/concepts/anti-cheat).
 
 ## Developer moderation & the deletion log
 

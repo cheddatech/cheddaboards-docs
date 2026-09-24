@@ -69,6 +69,7 @@ Behavior specific to targeted submits:
 - **Counts plays, not aggregate bests.** A targeted submit increments the player's play count but doesn't move their aggregate profile score/streak — send a plain submit as well if you want both.
 - **Per-board throttle.** The 2-second rate limit is keyed per board, so chaining several targeted submits in one run (e.g. a level board plus a shared `runs` board) is fine.
 - **The board must exist and be targeted.** Submitting a `scoreboardId` for a board that doesn't exist returns `"Scoreboard '<id>' not found for this game."` — the API never auto-creates a board. Create it in the console first (Board Type → Targeted).
+- **Never send a fan-out board's ID.** `all-time`, `weekly`, `daily` and custom fan-out boards are updated by a plain submit; naming one in `scoreboardId` is rejected. Omit the field instead.
 
 Full treatment: [Category boards](/concepts/category-boards).
 

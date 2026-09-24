@@ -71,7 +71,7 @@ curl -X POST https://api.cheddaboards.com/scores \
   -H "X-API-Key: cb_my-jam-game_xxxxxxxxx" \
   -H "X-Game-ID: my-jam-game" \
   -H "Content-Type: application/json" \
-  -d '{"playerId": "player_001", "gameId": "my-jam-game", "score": 1500, "streak": 5}'
+  -d '{"playerId": "dev_1730000000_1a2b3c4d", "gameId": "my-jam-game", "score": 1500, "streak": 5}'
 
 # read the board
 curl "https://api.cheddaboards.com/leaderboard?sort=score&limit=10" \
@@ -79,7 +79,7 @@ curl "https://api.cheddaboards.com/leaderboard?sort=score&limit=10" \
   -H "X-Game-ID: my-jam-game"
 ```
 
-Generate `playerId` once, store it locally, reuse it — that's the whole identity model. Full surface: [REST quick start](/quickstart/rest).
+Generate `playerId` once per player (random, e.g. `dev_<unixtime>_<random>`), store it locally, reuse it — that's the whole identity model. Never hard-code one: every copy of your game would be the same player. Full surface: [REST quick start](/quickstart/rest).
 
 ## Jam checklist
 

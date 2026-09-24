@@ -11,7 +11,7 @@ A pre-release pass for games shipping with CheddaBoards. Everything on this list
 ## Anti-cheat
 
 - **Caps set from real data.** Per-round max just above your best legitimate run, all-time ceiling above anything a real player could accumulate. See [Anti-cheat](/concepts/anti-cheat).
-- **Play sessions wired.** If time validation is on, the session token is required — and wiring the start → submit → end lifecycle costs nothing while it's off. The official SDKs handle this automatically.
+- **Play sessions wired.** If time validation is on, the session token is required — and wiring the start → submit → end lifecycle costs nothing while it's off. The SDKs attach the token for you, but you start and end the session yourself (on the Godot template, the game wrapper does it).
 - **Watch the suspicion log for the first week.** Start loose, see where real submissions cluster, then tighten.
 
 ## Sessions and accounts

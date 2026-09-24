@@ -108,7 +108,7 @@ curl -X POST https://api.cheddaboards.com/scores \
   }'
 ```
 
-On success the response confirms the board it landed on, e.g. `"Submitted to level-14 - Score: 1000, Streak: 0"`.
+On success the response confirms the board it landed on, e.g. `"✅ Submitted to level-14 - Score: 1000, Streak: 5"`.
 
 How a targeted submit differs from a plain one:
 
@@ -116,6 +116,7 @@ How a targeted submit differs from a plain one:
 - It counts toward the player's play count for the game, but score/streak totals on the aggregate profile only move on plain submits. If you also want the score reflected in the player's overall bests, send a separate plain submit.
 - The same play-session / time-validation and rate-limit rules apply as for a plain submit.
 - You can chain several targeted submits for one run (e.g. a `runs` board plus the relevant `level-14` board) — the throttle is keyed per board, so back-to-back board writes won't trip the 2-second gate.
+- Never put a **fan-out** board's ID (`all-time`, `weekly`, `daily`…) in `scoreboardId` — that's rejected. Those boards are updated by a plain submit, so just omit the field.
 
 The target board must already exist **and be marked as targeted**. Create it in the **Developer Console → Scoreboards** tab: set a Scoreboard ID, choose **Board Type → Targeted**, and create it. Submitting a `scoreboardId` that points at a board that doesn't exist returns `"Scoreboard '<id>' not found for this game."` — create the board in the console first; a submit never creates a board.
 
@@ -154,7 +155,7 @@ curl "https://api.cheddaboards.com/leaderboard?sort=score&limit=100" \
 
 This reads the game's global (fan-out) leaderboard. For a specific board — timed *or* targeted — use `GET /games/{gameId}/scoreboards/{scoreboardId}`.
 
-Scoreboard reads are edge-cached for around 30 seconds, so there's no benefit to polling a board faster than that. If you refresh a board on screen, a 30-second interval plus a refresh after your own submit is the pattern the official SDKs use.
+Scoreboard reads are edge-cached for around 30 seconds, so there's no benefit to polling a board faster than that. If you refresh a board on screen, a 30-second interval plus a refresh after your own submit is the pattern the Godot template uses.
 
 ### Reading boards straight from the chain
 
@@ -164,7 +165,7 @@ Scoreboard reads are also served directly by the CheddaBoards canister on the In
 curl "https://fdvph-sqaaa-aaaap-qqc4a-cai.raw.icp0.io/games/my-game/scoreboards/level-14?limit=100"
 ```
 
-Same paths, same JSON — responses are identical to the API responses above. No API key needed; board data is public. The official Godot SDK reads boards this way by default. It's browser-safe too: the endpoint serves `Access-Control-Allow-Origin: *`, so HTML5 games and web pages can fetch it directly.
+Same paths, same JSON — responses are identical to the API responses above. No API key needed; board data is public. The official SDKs (Godot and Unity) read boards this way by default, falling back to the API if the direct path is blocked. It's browser-safe too: the endpoint serves `Access-Control-Allow-Origin: *`, so HTML5 games and web pages can fetch it directly.
 
 Why you might prefer it:
 
@@ -208,7 +209,7 @@ Use the returned `sessionId` as your `X-Session-Token` on subsequent requests, a
 
 ## 4. Anti-cheat play sessions (recommended)
 
-Wrap each run in a server-tracked session so the backend can validate the score against elapsed time. The Godot SDK does this automatically; on the raw REST path you do it yourself. **If you've set anti-cheat caps on your dashboard — or enabled time validation for the game — do this**: scores submitted without a valid session token skip time validation and may be rejected. Targeted submits go through the same gate.
+Wrap each run in a server-tracked session so the backend can validate the score against elapsed time. On the REST path you make these calls yourself (the SDKs wrap them as `start_play_session()` / `StartPlaySession()` and attach the token to submits for you). **If you've set anti-cheat caps on your dashboard — or enabled time validation for the game — do this**: scores submitted without a valid session token skip time validation and may be rejected. Targeted submits go through the same gate.
 
 The lifecycle is: **start** when the run begins → **pass the token** in your `POST /scores` body → **end** after submitting.
 
@@ -304,7 +305,8 @@ That's a complete integration. Everything else on this page — targeted boards,
 |--------|----------|---------|
 | `POST` | `/scores` | Submit a score (`playerId`, `gameId`, `score`, `streak`, `nickname?`, `playSessionToken?`, `scoreboardId?`). Including `nickname` renames the player; omit it to keep their stored name. With `scoreboardId`, writes to that one targeted board instead of fanning out. |
 | `GET`  | `/leaderboard?sort={score\|streak}&limit={n}` | Global leaderboard |
-| `GET`  | `/games/{gameId}/scoreboards/{scoreboardId}/rank` | A player's rank on a board (session-authenticated) |
+| `GET`  | `/players/{playerId}/rank?sort={score\|streak}` | A player's game-wide rank (API key — works for anonymous players) |
+| `GET`  | `/games/{gameId}/scoreboards/{scoreboardId}/rank` | A player's rank on a specific board (session-authenticated) |
 | `GET`  | `/players/{playerId}/profile` | Anonymous player profile |
 | `GET`  | `/auth/profile` | Signed-in player profile (uses `X-Session-Token`) |
 | `PUT`  | `/profile/nickname` | Change nickname, signed-in (`X-Session-Token`, `{ nickname }`) |
@@ -318,6 +320,7 @@ That's a complete integration. Everything else on this page — targeted boards,
 | `POST` | `/play-sessions/end` | End a session (`{ playSessionToken }`) |
 | `POST` | `/achievements` | Unlock achievements — single (`{ achievementId }`) or batch (`{ achievementIds: [...] }`); read them back via the player's profile |
 | `GET`  | `/game` | Game metadata |
+| `GET`  | `/game/stats` | Game stats |
 | `GET`  | `/stats` | Platform submission stats |
 | `GET`  | `/health` | Service health check |
 
@@ -330,7 +333,7 @@ Timed-scoreboard **archives** have their own endpoints under `/games/{gameId}/sc
 - All bodies are JSON; all responses are JSON.
 - Game and scoreboard IDs in URL paths must be 1–64 characters of letters, digits, `_` or `-`; anything else returns a `400` before reaching the backend.
 - A `404` on a scoreboard lookup is normal — it just means that scoreboard isn't configured for the game.
-- **Submits are safe to retry.** The backend keeps per-player bests, so resending a score after a timeout can never lower a score or streak — no client-side dedupe needed. The only thing a duplicate submit moves is the player's play count, so avoid blind retry *loops* if play counts matter to you.
+- **Submits are safe to retry.** The backend keeps per-player bests, so resending a score after a timeout can never lower a score or streak — no client-side dedupe needed. Repeat submits within a few seconds also count as one play, so an immediate retry is fully safe; only well-spaced duplicates move the play count, so avoid long-running blind retry *loops* if play counts matter to you.
 - Rate limiting is enforced server-side: one submit per player per board every 2 seconds.
 - Targeted boards are created in the Developer Console (**Board Type → Targeted**) before you submit to them. A submit never creates one — but every game's standard timed boards (all-time, weekly, daily) exist from registration.
 

@@ -40,7 +40,7 @@ curl -X POST https://api.cheddaboards.com/achievements \
   }'
 ```
 
-Prefer the batch form for anything more than a single unlock. Under the hood a batch is one backend call; firing many single unlocks back-to-back is slower and can run into the [rate limit](/api/errors#rate-limited). Unlocking is idempotent — re-sending an achievement the player already has is harmless, so you don't need to track locally which ones have been sent.
+Prefer the batch form for anything more than a single unlock. Under the hood a batch is one backend call; firing many single unlocks back-to-back is much slower and, in a long burst, can time out. Unlocking is idempotent — re-sending an achievement the player already has is harmless, so you don't need to track locally which ones have been sent.
 
 The response reports the batch outcome and a per-achievement breakdown:
 
@@ -98,6 +98,6 @@ Achievements are identified by a string ID you choose (`first_win`, `combo_10`, 
 
 The design is **score-first**: your game submits the score immediately and syncs achievements separately, so achievement traffic never delays a score landing on the board. If an unlock call fails (network blip, transient `5xx`), it's safe to retry — because unlocking is idempotent, re-sending the whole set the player has earned this session is a clean way to recover, no per-ID bookkeeping needed.
 
-The official SDKs do this batching and retry for you; on the REST path, gather the run's newly-earned IDs and send them as one `achievementIds` batch after the score submits.
+The official SDKs do the batching for you: `submit_score_with_achievements` / `SubmitScoreWithAchievements` submits the score, then sends the run's unlocks as one batch once it lands. (The Godot template's `Achievements` autoload goes further and re-sends anything that didn't sync.) On the REST path, gather the run's newly-earned IDs and send them as one `achievementIds` batch after the score submits.
 
 **See also:** [REST quick start](/quickstart/rest) · [Players](/api/players) · [Authentication](/api/authentication) · Godot SDK: [signals reference](/engines/godot-signals)

@@ -27,7 +27,11 @@ You submitted a score with a `scoreboardId` that doesn't exist on this game. Eve
 
 ### `This game requires starting a session before submitting.`
 
-The game has **time validation** enabled, which makes the play-session token required — a submit without a valid `playSessionToken` is rejected before any score checks run. Start a session when the run begins (`POST /play-sessions/start`), pass its token in the submit body, and end the session after submitting (`POST /play-sessions/end`). The official SDKs run this lifecycle automatically, so if you're seeing this from an SDK integration, the session start likely didn't happen before the submit. (The `startGameSession` the message mentions is the backend's internal name — on REST the call is `/play-sessions/start`.) See [Anti-cheat](/concepts/anti-cheat).
+The game has **time validation** enabled, which makes the play-session token required — a submit without a valid `playSessionToken` is rejected before any score checks run. Start a session when the run begins (`POST /play-sessions/start`), pass its token in the submit body, and end the session after submitting (`POST /play-sessions/end`). The SDKs attach the token for you but don't start sessions on their own — call `start_play_session()` / `StartPlaySession()` when the run begins. (The Godot template's game wrapper is the one place the whole lifecycle runs automatically.) If you're seeing this from an SDK integration, the session start didn't happen before the submit. (The `startGameSession` the message mentions is the backend's internal name — on REST the call is `/play-sessions/start`.) See [Anti-cheat](/concepts/anti-cheat).
+
+### Submitting to a fan-out board by ID
+
+A `scoreboardId` on a submit means "this one targeted board only", so sending the ID of a **fan-out** board (`all-time`, `weekly`, `daily`, or a custom fan-out board) is rejected. To update those boards, **omit `scoreboardId`** — a plain submit already fans out to every one of them. See [Scores → targeted submits](/api/scores#targeted-submits).
 
 ### `rejected by game validation rules`
 

@@ -14,7 +14,7 @@ Custom HTML Shell:  res://template.html
 
 This is optional — it just gives you the branded loading screen. Auth, scores, and leaderboards all run from GDScript over HTTP, so they work with Godot's default shell too. If you *do* use the included `template.html`, export as `index.html` (it loads `index.js`).
 
-**2. Export as `index.html`.** Project → Export → Web → Export Project, and save it as **`index.html`** — not `MyGame.html`. Other filenames break relative paths and auth redirects, and produce the "Engine not defined" error.
+**2. Export as `index.html`.** Project → Export → Web → Export Project, and save it as **`index.html`** — not `MyGame.html`. The included `template.html` loads `index.js` by name, so any other filename gives the "Engine not defined" error; and itch.io (like most hosts) looks for `index.html` in your upload zip. With Godot's default shell other names technically work, but `index.html` is the safe habit.
 
 **3. Serve over HTTP, not `file://`.** Web builds won't run from a local file path. Use any static server:
 

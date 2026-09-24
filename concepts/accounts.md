@@ -41,7 +41,7 @@ The mechanics — the `/migrate-account` call, the device-code flow, the signals
 
 ### Why linking matters to you, the developer
 
-It's tempting to think of sign-in as a feature for the player's benefit only. It's also **retention infrastructure**: a linked player survives the things that otherwise silently lose you a player — a cleared browser cache, a new phone, a reinstall. An anonymous player who does any of those becomes a brand-new anonymous player, their old bests stranded on an ID the device no longer holds. Linking is the fix, which is why the SDKs surface it as "save your progress" rather than "create an account."
+It's tempting to think of sign-in as a feature for the player's benefit only. It's also **retention infrastructure**: a linked player survives the things that otherwise silently lose you a player — a cleared browser cache, a new phone, a reinstall. An anonymous player who does any of those becomes a brand-new anonymous player, their old bests stranded on an ID the device no longer holds. Linking is the fix, which is why it's worth pitching to players as "save your progress" rather than "create an account."
 
 You don't have to push it. Anonymous-only is a perfectly good mode, and many players will never link. But offering the option — especially after a personal best, or when a returning player's local data looks empty — is the single highest-leverage thing you can do for player retention.
 

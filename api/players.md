@@ -37,11 +37,33 @@ For a **signed-in** player, the equivalent is `GET /auth/profile` using the sess
 
 ## Get a player's rank
 
+Two endpoints, depending on how the player is identified.
+
+**Any player, game-wide** (works with the API key, so anonymous players too):
+
+```
+GET /players/{playerId}/rank?sort={score|streak}
+```
+
+```bash
+curl "https://api.cheddaboards.com/players/dev_1730000000_1a2b3c4d/rank?sort=score" \
+  -H "X-API-Key: cb_my-game_xxxxxxxxx" \
+  -H "X-Game-ID: my-game"
+```
+
+```json
+{"ok":true,"data":{"rank":40,"score":1234,"streak":3,"totalPlayers":68}}
+```
+
+This is what the SDKs' `get_player_rank()` / `GetPlayerRank()` call. `sort` is `score` (default) or `streak`.
+
+**Signed-in player, on a specific board:**
+
 ```
 GET /games/{gameId}/scoreboards/{scoreboardId}/rank
 ```
 
-Returns the player's position on a specific board. This is a **signed-in** call — it's keyed on the player's session (send `X-Session-Token`), and it ranks against the actual board the player sees, so the rank and total match the visible leaderboard rather than a separate population. Use it to show "you're #40 of 68" on a given board without pulling the whole thing.
+Returns the player's position on one board — all-time, a timed board, or a category board. This call is keyed on the player's session (send `X-Session-Token`), and it ranks against the actual board the player sees, so the rank and total match the visible leaderboard. Use it to show "you're #40 of 68" on a given board without pulling the whole thing. (SDK: `get_scoreboard_rank()` / `GetScoreboardRank()`.)
 
 ## Change a nickname
 
