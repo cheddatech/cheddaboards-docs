@@ -7,6 +7,8 @@
 - **Unity 2022.3 LTS or newer** — the SDK is pure `UnityWebRequest`, no packages.
 - **A CheddaBoards game** — register at [cheddaboards.com](https://cheddaboards.com/developers) for a Game ID and API key.
 
+Want it all at once? Skip to [the one-file example](#the-whole-thing-in-one-file).
+
 ## Step 1 — Add the SDK
 
 Copy `CheddaBoards.cs` from the [CheddaBoards-Unity repo](https://github.com/cheddatech/CheddaBoards-Unity) into your project, e.g. `Assets/Scripts/CheddaBoards.cs`. That's the whole install — the SDK auto-creates its own singleton `GameObject` with `DontDestroyOnLoad`, so there's no scene setup.
@@ -101,6 +103,76 @@ void OnGameOver(int score, int streak)
 `StartPlaySession()` is asynchronous: the token arrives a moment later via `OnPlaySessionStarted` (or `OnPlaySessionError` if it fails). A submit sent before then goes without a token. That's only a risk for very short runs, but if your game can end within a second or two of starting, check `CheddaBoards.Instance.HasPlaySession()` before submitting, or wait for `OnPlaySessionStarted` before letting the run begin.
 
 Set the actual limits (score caps, time validation) from your dashboard's Security tab — see [Anti-cheat](/concepts/anti-cheat). Without a session, scores still submit — unless the game has time validation enabled, in which case the session token is **required** and sessionless submits are rejected.
+
+## The whole thing in one file
+
+Everything from Steps 2–5 in a single `MonoBehaviour`. Drop it on any GameObject, fill in your key and Game ID, and wire `StartRun()` / `GameOver()` to your own game logic.
+
+```csharp
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.UI;
+using CheddaTech;                          // the SDK namespace (CheddaBoards.cs)
+
+/// One-file CheddaBoards integration: login, play session, submit, leaderboard.
+public class CheddaBoardsExample : MonoBehaviour
+{
+    [Header("From cheddaboards.com/developers")]
+    public string apiKey = "cb_my-game_xxxxxxxxx";
+    public string gameId = "my-game";
+
+    [Header("Optional: any UI Text to render the board into")]
+    public Text leaderboardText;
+
+    CheddaBoards cb;
+
+    void Start()
+    {
+        cb = CheddaBoards.Instance;        // auto-creates the singleton (DontDestroyOnLoad)
+        cb.SetApiKey(apiKey);
+        cb.SetGameId(gameId);
+
+        // Subscribe BEFORE LoginAnonymous(): OnLoginSuccess fires during the call.
+        cb.OnLoginSuccess       += nick => { Debug.Log($"Logged in as {(nick == "" ? "Guest" : nick)}"); cb.GetAlltimeLeaderboard(); };
+        cb.OnLoginFailed        += err  => Debug.LogError($"Login failed: {err}");   // usually a missing API key
+        cb.OnPlaySessionStarted += tok  => Debug.Log("Play session ready");
+        cb.OnScoreSubmitted     += (score, streak) => { Debug.Log($"Saved {score}"); cb.GetAlltimeLeaderboard(); };
+        cb.OnScoreError         += err  => Debug.LogWarning($"Score rejected: {err}");
+        cb.OnScoreboardLoaded   += RenderBoard;
+        cb.OnScoreboardError    += err  => Debug.LogWarning($"Board error: {err}");
+
+        cb.LoginAnonymous();               // guest login on a persistent device ID, no account needed
+    }
+
+    /// Call when a run begins. Starts an anti-cheat play session (token arrives via OnPlaySessionStarted).
+    public void StartRun()
+    {
+        cb.StartPlaySession();
+    }
+
+    /// Call when a run ends. Submits to all-time, weekly and daily boards; only the player's best is kept.
+    public void GameOver(int score, int streak = 0)
+    {
+        if (!cb.HasPlaySession()) Debug.LogWarning("Submitting without a play session (started too fast?)");
+        cb.SubmitScore(score, streak);     // play-session token is attached automatically
+        cb.EndPlaySession();
+    }
+
+    /// Fires for every board read; entries are dictionaries with rank / nickname / score / streak.
+    void RenderBoard(string boardId, Dictionary<string, object> config, List<object> entries)
+    {
+        var lines = new List<string> { $"== {boardId} ==" };
+        foreach (Dictionary<string, object> e in entries)
+            lines.Add($"#{e["rank"]}  {e["nickname"]}  {e["score"]}");
+
+        string text = string.Join("\n", lines);
+        if (leaderboardText != null) leaderboardText.text = text;
+        Debug.Log(text);
+    }
+}
+```
+
+That's the complete integration. `SubmitScore` fans out to the three default boards; swap in `SubmitScoreToBoard("level-14", score, streak)` for per-level boards, and `GetWeeklyLeaderboard()` / `GetDailyLeaderboard()` / `GetScoreboard("any-id")` for other reads — they all arrive through the same `OnScoreboardLoaded` event.
 
 ## Signing in with Google / Apple (optional)
 
