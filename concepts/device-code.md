@@ -4,8 +4,8 @@ Sign players in with Google or Apple on **any** platform — desktop, mobile, we
 
 This is the hands-on companion to [Authentication](/api/authentication), which covers the wider picture (anonymous play, account linking, the raw REST endpoints). Here we build the **login screen** itself, in Godot.
 
-- On the **Template**, the screen is already built — skip to [Fastest path](#fastest-path).
-- On the **Drop-in** path, [Build your own](#build-your-own-screen) shows the pattern.
+- On the **Drop-in** and **Template** paths, the screen ships inside the addon (since v2.3.0) — skip to [Fastest path](#fastest-path).
+- Want your own look? [Build your own](#build-your-own-screen) shows the pattern.
 - On **REST / other engines**, the two endpoints behind all of this are in [Authentication → device code](/api/authentication#sign-in-with-google-apple-device-code).
 
 ## How it works (30 seconds)
@@ -17,12 +17,14 @@ This is the hands-on companion to [Authentication](/api/authentication), which c
 
 Players do this **once** (since v2.2.3): the session persists to `user://` and is restored on startup, so this screen only reappears after a logout or a server-side expiry — see [Authentication → sessions](/api/authentication#sessions).
 
+The in-flight code survives too (since v2.3.0): a pending device code is saved to `user://` the moment it's issued, so a page reload or app restart mid-link resumes polling on the **same** code instead of minting a new one — see [Pending codes](#pending-codes-reload-and-restart).
+
 ## Fastest path
 
-The Template ships a reusable popup scene + script that wires every signal and cleans itself up. Instantiate it and start the flow:
+The addon ships a reusable popup scene + script at `addons/cheddaboards/ui/DeviceCodeLogin.tscn` that wires every signal and cleans itself up. (The Template instantiates this same copy — it no longer carries its own.) Instantiate it and start the flow:
 
 ```gdscript
-var popup = preload("res://scenes/DeviceCodeLogin.tscn").instantiate()
+var popup = preload("res://addons/cheddaboards/ui/DeviceCodeLogin.tscn").instantiate()
 add_child(popup)
 popup.start_sign_in()
 
@@ -30,7 +32,7 @@ popup.signed_in.connect(func(nickname): print("Welcome, %s!" % nickname))
 popup.cancelled.connect(func(): print("Sign-in dismissed"))
 ```
 
-It emits `signed_in(nickname)` on success and `cancelled()` if dismissed or expired, then frees itself. (The script also exposes a `show_sign_in(parent)` static helper for a true one-liner — see the note at the end.)
+It emits `signed_in(nickname)` on success and `cancelled()` on an explicit cancel or expiry, then frees itself. Closing the popup is a **soft dismiss**: the SDK keeps polling in the background and `signed_in` still fires if the player finishes on their phone — see [Dismiss vs cancel](#dismiss-vs-cancel). (The script also exposes a `show_sign_in(parent)` static helper for a true one-liner — see the note at the end.)
 
 ## The signal lifecycle
 
@@ -64,6 +66,28 @@ Your login screen doesn't need to handle these (the popup closes on `device_code
 ::: warning Nicknames can settle a beat after approval
 When linking *creates* the account, it's born with the player's in-game name — but if their anonymous profile still holds that name at creation time, the account briefly gets a suffixed one (`Jegg_1`) and the SDK reclaims the exact name right after the merge, emitting `nickname_changed`. If you display the player's name anywhere persistent, connect `nickname_changed` rather than caching the string from `device_code_approved`.
 :::
+
+## Dismiss vs cancel
+
+These are different things, and the prebuilt popup treats them differently. Do the same in your own screen.
+
+- **Dismiss** (player closes the popup, taps outside, backs out to the menu): hide the UI and do nothing else. The SDK carries on polling, and `device_code_approved` fires whenever the player finishes on their phone — so a player who scans the QR, pockets their phone, and gets back to the game still ends up signed in.
+- **Cancel** (an explicit "Cancel" / "Don't sign in" action): call `CheddaBoards.cancel_device_code()`. This stops polling and clears the pending code, so the next attempt mints a fresh one.
+
+Only call `cancel_device_code()` on the explicit action. Calling it on every close means a player who dismissed the popup a second early loses the sign-in they'd already completed.
+
+## Pending codes: reload and restart
+
+Since v2.3.0 the SDK writes the pending device code to `user://` as soon as it's issued, and clears it on approval, expiry, or cancel. This matters most on web builds, where a tab reload used to throw the code away while the player was mid-sign-in on their phone.
+
+- `login_with_device_code()` reuses a pending code if one exists — `device_code_received` fires again with the same code, URL, and QR, and polling resumes. Pass `force_new = true` to discard it and mint a fresh one.
+- `has_pending_device_code()` tells you whether one is waiting, so you can reopen the login screen on startup rather than asking the player to scan again.
+
+```gdscript
+func _ready():
+    if CheddaBoards.has_pending_device_code() and not CheddaBoards.is_authenticated():
+        _show_login_screen()   # resumes the same code
+```
 
 ## Build your own screen
 
@@ -159,18 +183,20 @@ The verification URL already has the code pre-filled, so the player just taps a 
 
 ## Cleaning up
 
-When the flow ends — approved, expired, or cancelled — disconnect the signals and free the node. If you tear down while still waiting, tell the SDK to stop polling:
+When the flow ends — approved, expired, or cancelled — disconnect the signals and free the node. If you tear down on a plain dismiss, leave the SDK polling; only stop it on an explicit cancel (see [Dismiss vs cancel](#dismiss-vs-cancel)):
 
 ```gdscript
-func _close():
-    if _still_waiting:
+func _close(explicit_cancel: bool = false):
+    if explicit_cancel and _still_waiting:
         CheddaBoards.cancel_device_code()
     # disconnect device_code_* signals here
     queue_free()
 ```
 
+If you free the screen on a dismiss, connect `device_code_approved` somewhere longer-lived (your main menu, an autoload) so the sign-in still lands when it completes.
+
 ## The one-liner helper
 
-The reference script exposes a static `show_sign_in(parent)` that instantiates, adds, and starts the flow in a single call. To use it as `DeviceCodeLogin.show_sign_in(self)`, the script needs a `class_name` and the popup scene must sit at the path the helper loads (`res://scenes/DeviceCodeLogin.tscn`). If you've renamed either, update both to match. The explicit `preload(...).instantiate()` form above always works regardless.
+The reference script exposes a static `show_sign_in(parent)` that instantiates, adds, and starts the flow in a single call. To use it as `DeviceCodeLogin.show_sign_in(self)`, the script needs a `class_name` and the popup scene must sit at the path the helper loads (`res://addons/cheddaboards/ui/DeviceCodeLogin.tscn`). If you've renamed either, update both to match. The explicit `preload(...).instantiate()` form above always works regardless.
 
 **See also:** [Authentication](/api/authentication) · [Signals reference](/engines/godot-signals) · [Godot quick start](/quickstart/godot)
