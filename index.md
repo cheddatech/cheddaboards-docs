@@ -14,9 +14,12 @@ hero:
     - theme: alt
       text: Unity
       link: /quickstart/unity
+    - theme: alt
+      text: Using an AI assistant?
+      link: /ai-integration
 features:
   - title: Any engine
-    details: If it can make an HTTP request it can use CheddaBoards. Official SDKs for Godot 4, Godot 3.6 and Unity.
+    details: If it can make an HTTP request it can use CheddaBoards. Official SDKs for Godot 4.3+, Godot 3.6 and Unity.
   - title: Players sign in on their own terms
     details: Anonymous by default. Link a Google or Apple account with a device code — no OAuth console setup on your side — and progress follows the player across devices.
     link: /concepts/accounts
@@ -32,4 +35,7 @@ features:
   - title: Yours to keep
     details: The backend and SDKs are open source. Use the hosted service or run your own.
     link: /self-hosting/overview
+  - title: Built with an AI assistant?
+    details: Hand Claude, Cursor or Copilot the integration spec, or point it at llms.txt. Every endpoint, rule and error string on one page.
+    link: /ai-integration
 ---
