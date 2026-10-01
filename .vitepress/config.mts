@@ -12,7 +12,9 @@ export default defineConfig({
     ['link', { rel: 'icon', href: '/favicon.ico' }],
     ['link', { rel: 'preconnect', href: 'https://fonts.googleapis.com' }],
     ['link', { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' }],
-    ['link', { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@400;500;600;700&display=swap' }]
+    ['link', { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@400;500;600;700&display=swap' }],
+    // Machine-readable index for AI assistants and crawlers (see public/llms.txt)
+    ['link', { rel: 'alternate', type: 'text/plain', href: '/llms.txt', title: 'llms.txt' }]
   ],
   themeConfig: {
     logo: '/logo.png',
@@ -24,6 +26,12 @@ export default defineConfig({
       { text: 'Status', link: 'https://status.cheddatech.com' }
     ],
     sidebar: [
+      {
+        text: 'For AI assistants',
+        items: [
+          { text: 'Integration spec', link: '/ai-integration' }
+        ]
+      },
       {
         text: 'Quick start',
         items: [
