@@ -2,7 +2,7 @@
 
 How nicknames work, the three rules that keep them from going wrong, and copy-paste name-entry flows for Godot and Unity.
 
-Applies to the Godot 4 addon **2.2.7+** and the Unity SDK **2.3.0+**. Older versions had a bug where a submit could overwrite a saved name with a generated one; if names are "changing on their own", update the SDK first. The Godot 3.6 backport (2.2.5-3x) still has that bug: on 3.6, call `refresh_profile()` after login and wait for `profile_loaded` or `no_profile` before the first submit (see the [3.6 guide](/engines/godot-3#known-differences-from-2-2-7)). Everything else on this page applies to 3.6 as written.
+Applies to the Godot 4 addon **2.2.7+** and the Unity SDK **2.3.0+** (the shared-device section needs **2.3.1**). Older versions had a bug where a submit could overwrite a saved name with a generated one; if names are "changing on their own", update the SDK first. The Godot 3.6 backport (2.2.5-3x) still has that bug: on 3.6, call `refresh_profile()` after login and wait for `profile_loaded` or `no_profile` before the first submit (see the [3.6 guide](/engines/godot-3#known-differences-from-2-2-7)). Everything else on this page applies to 3.6 as written.
 
 ## The one thing to understand
 
@@ -53,9 +53,7 @@ Then wait for one of two signals:
 
 Name rules (pre-checked by the SDK, enforced by the server): **3 to 16 characters, letters, numbers and underscores only.** Spaces, emoji and punctuation are rejected.
 
-There's a wrinkle for **brand-new players**. Until their first score creates a profile, they don't exist on the server, so `change_nickname()` only stores the name locally and fires `nickname_changed` straight away with exactly what was typed. The server first sees it on their first submit. If the name is free, the profile is created with it. If `Alex` is already taken, the profile is created as `Player_N` instead (no suffixing on this path), and that name arrives on the next `profile_loaded` / `OnProfileLoaded` with no `nickname_changed` for it. For players who already have a profile, the rename goes to the server immediately and the signal carries the final name: `Alex`, or `Alex_1` if `Alex` was taken.
-
-If you want new players to get the suffixed version rather than `Player_N`, call `change_nickname()` again once `profile_loaded` fires after their first score. The rename path suffixes; the create path doesn't.
+There's a wrinkle for **brand-new players**. Until their first score creates a profile, they don't exist on the server, so `change_nickname()` holds the name locally and fires `nickname_changed` straight away with exactly what was typed. The server first sees it on their first submit. If the name is free, the profile is created with it and you're done. If `Alex` is already taken, the server creates the profile as `Player_N`; the SDK notices on the next profile load, re-sends the rename, and `nickname_changed` fires again with `Alex_1`. So the sequence for a new player is: pick a name, play, submit, and refresh the profile once after the first score. (On raw REST there is no re-sync: a taken name at first submit stays `Player_N` until you call the rename endpoint.) For players who already have a profile, the rename goes to the server immediately and the signal carries the final name.
 
 The practical rule covering both: **after `profile_loaded`, redraw the name from `get_nickname()`.** Treat it as the source of truth whenever it fires.
 
@@ -220,13 +218,17 @@ The answer is **not** to send a nickname with every score. The nickname is just 
 
 Instead, keep a small roster in the game: one player ID per person, generated once and saved locally, and make the chosen person's ID the active one before they play. Each ID is a separate profile with its own name, bests and board rows, exactly as if they were on separate devices. Linking still works per person: whoever links merges their own slot into their account.
 
-Three rules for switching:
+Three steps for switching (SDK **2.3.1+**, where `set_player_id()` resets the previous person's cached profile, name, pending rename and play session when the ID changes):
 
-1. **Set the ID, then log in again.** `login_anonymous()` / `LoginAnonymous()` (no name) clears the cached name so the previous person's isn't shown for the next.
-2. **Refresh the profile** so `get_nickname()` and the bests are the new person's.
-3. **Start a new play session** for the new person. Sessions are per player.
+1. **Set the ID**, then **`login_anonymous()` / `LoginAnonymous()`** with no name.
+2. **Fetch the profile with `get_player_profile()` / `GetPlayerProfile()`**, not `refresh_profile()`: the refresh helper has a 2-second cooldown and silently does nothing inside it, which a quick switch can hit.
+3. **Start a new play session** when the new person's run begins. Sessions are per player.
 
-The SDKs don't persist a `set_player_id()` override, so re-apply it from your roster on startup too. Name entry per person is the normal flow from above: offer the box when `get_nickname()` is `""` after the profile is known, rename through the SDK, never pass names into login.
+The SDKs don't persist a `set_player_id()` override, so re-apply it from your roster on startup too.
+
+::: warning On 2.3.0
+`set_player_id()` did not reset state, so a rename for a brand-new person after someone else had played was sent to the server and lost. Update to 2.3.1. If you must stay on 2.3.0, call `logout()` before switching and, for a new person, pass their name once at creation (`login_anonymous(name)`) instead of `change_nickname()` before their first score.
+::: Name entry per person is the normal flow from above: offer the box when `get_nickname()` is `""` after the profile is known, rename through the SDK, never pass names into login.
 
 ### Roster: Godot 4
 
@@ -255,9 +257,9 @@ func add_player(label: String) -> int:
 func select(index: int) -> void:
 	active = index
 	_save()
-	CheddaBoards.set_player_id(players[index]["id"])
-	CheddaBoards.login_anonymous()        # no name: clears the previous person's cached name
-	CheddaBoards.refresh_profile()        # profile_loaded / no_profile then drives name entry
+	CheddaBoards.set_player_id(players[index]["id"])   # 2.3.1+: resets the previous person's state
+	CheddaBoards.login_anonymous()        # no name
+	CheddaBoards.get_player_profile()     # no cooldown; profile_loaded / no_profile then drives name entry
 
 func _save() -> void:
 	var cfg := ConfigFile.new()
@@ -308,9 +310,9 @@ public static class Roster
         store.active = index;
         Save();
         var cb = CheddaBoards.Instance;
-        cb.SetPlayerId(store.players[index].id);
-        cb.LoginAnonymous();     // no name: clears the previous person's cached name
-        cb.RefreshProfile();     // OnProfileLoaded / OnNoProfile then drives name entry
+        cb.SetPlayerId(store.players[index].id);   // 2.3.1+: resets the previous person's state
+        cb.LoginAnonymous();     // no name
+        cb.GetPlayerProfile();   // no cooldown; OnProfileLoaded / OnNoProfile then drives name entry
     }
 
     public static int Active { get { Load(); return store.active; } }
@@ -332,7 +334,7 @@ Nothing special: `playerId` on every request is whatever you send. Generate one 
 | Leaderboard shows the same player under several names | Game generates or stores its own name and passes it at login | Same as above; the server is the source of truth, not your save file |
 | `change_nickname` keeps failing with the same message | The value is invalid or taken-and-unsuffixable; rejections are permanent per value | Show the reason, let the player type a different one, never auto-retry |
 | Existing player typed `Alex`, UI shows `Alex` but board shows `Alex_1` | `Alex` was taken; the rename was suffixed | Redraw name displays from `get_nickname()` on every `profile_loaded` |
-| New player typed `Alex`, board shows `Player_1248` | `Alex` was taken when their first score created the profile; the create path falls back to a generated name rather than suffixing | Call `change_nickname()` again after `profile_loaded` to get `Alex_1`, or check availability first |
+| New player typed `Alex`, board shows `Player_1248` | `Alex` was taken when their first score created the profile | Refresh the profile once after the first score; the SDK re-sends the rename and `nickname_changed` fires with `Alex_1`. On raw REST, call the rename endpoint yourself |
 | Passed a name at login, nothing changed | The name was already taken, so the submit kept the old one; no error is raised on this path | Don't pass names at login; use `change_nickname()`, which reports the outcome |
 | Name chosen right after launch is gone a moment later | The name was set while the profile fetch was still in flight; when the profile landed it overwrote the local name | Don't offer the name box until `profile_loaded` or `no_profile` has fired (the flows above do this) |
 | After signing in, the name changed to something else | Player linked an existing account; the account's name wins | Expected. Redraw from `get_nickname()` after `account_upgraded` |
