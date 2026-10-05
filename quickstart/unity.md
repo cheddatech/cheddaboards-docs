@@ -11,9 +11,9 @@ Want it all at once? Skip to [the one-file example](#the-whole-thing-in-one-file
 
 ## Step 1 — Add the SDK
 
-Copy `CheddaBoards.cs` from the [CheddaBoards-Unity repo](https://github.com/cheddatech/CheddaBoards-Unity) into your project, e.g. `Assets/Scripts/CheddaBoards.cs`. That's the whole install — the SDK auto-creates its own singleton `GameObject` with `DontDestroyOnLoad`, so there's no scene setup.
+Copy `CheddaBoards.cs` from the [Unity SDK repo](https://github.com/cheddatech/cheddaboards-unity) into your project, e.g. `Assets/Scripts/CheddaBoards.cs`. That's the whole install — the SDK auto-creates its own singleton `GameObject` with `DontDestroyOnLoad`, so there's no scene setup.
 
-Prefer to start from a working example? The repo's [`Demo/`](https://github.com/cheddatech/CheddaBoards-Unity/tree/main/Demo) folder contains **CheddaClick**, a complete one-script game showing login, guest flow, play sessions, score submit, leaderboard render, and delta-synced achievements.
+Prefer to start from a working example? The repo's [`Demo/`](https://github.com/cheddatech/cheddaboards-unity/tree/main/Demo) folder contains **CheddaClick**, a complete one-script game showing login, guest flow, play sessions, score submit, leaderboard render, and delta-synced achievements.
 
 ## Step 2 — Configure and log in
 
@@ -49,7 +49,8 @@ profile after the first submit if you want to display or highlight it. Only pass
 `LoginAnonymous` when the player has just chosen it, because a passed name
 becomes the current nickname and is written to the server on the next submit —
 overwriting whatever they had. To let players pick or change their name, use
-`ChangeNickname()` (see [Nicknames](#nicknames)).
+`ChangeNickname()` (see [Nicknames](#nicknames)); a complete name-entry
+panel is on [Player names](/concepts/player-names).
 
 ## Step 3 — Submit a score
 
@@ -193,9 +194,11 @@ cb.LoginWithDeviceCode();
 
 Players sign in **once** — the session persists across restarts. If the server later rejects a stored session, `OnSessionExpired` fires (and `OnLogoutSuccess` with it, so a menu that handles logout falls back to its sign-in screen). Full flow: [Authentication](/api/authentication).
 
+Two things the SDK (2.3.0+) does for you here. A pending code **survives an app restart or WebGL reload**: it's saved to `PlayerPrefs`, polling resumes on the same code, and a `LoginWithDeviceCode()` call on your login screen re-emits that code instead of minting a new one (pass `true` to force a fresh one; `HasPendingDeviceCode()`, `GetDeviceVerificationUrl()` and `GetDeviceCodeSecondsRemaining()` let you redraw a restored code with its real time left). And **closing the code popup is not cancelling**: hide the UI and leave polling running, and `OnDeviceCodeApproved` still fires when the player finishes on their phone. Only call `CancelDeviceCode()` on an explicit "Cancel", since an approval given after that call is never picked up. If the player was anonymous, `OnAccountUpgraded` (or `OnAccountUpgradeFailed`) follows the approval once their progress has merged — see [Device code login](/concepts/device-code).
+
 ## Nicknames
 
-Nicknames are **3–16 characters, letters, digits, and underscores**. A taken name is auto-suffixed (`Chedz` → `Chedz_1`) rather than rejected; only genuinely invalid names raise `OnNicknameError`, and that's permanent for that value — ask for a different one.
+Nicknames are **3–16 characters, letters, digits, and underscores**. A taken name is auto-suffixed (`Chedz` → `Chedz_1`) rather than rejected; only genuinely invalid names raise `OnNicknameError`, and that's permanent for that value — ask for a different one. Before a brand-new player's first score, `ChangeNickname()` holds the name locally and sends it with that submit; redraw from `GetNickname()` on `OnProfileLoaded` to pick up what the server stored. Full model and a drop-in name-entry panel: [Player names](/concepts/player-names).
 
 ```csharp
 cb.OnNicknameChanged += (newNick) => Debug.Log($"Now: {newNick}");
@@ -233,12 +236,12 @@ The events you'll connect to most:
 | `OnDeviceCodeReceived` | `code, url, qrDataUrl` |
 | `OnDeviceCodeApproved` / `OnDeviceCodeExpired` | `nickname` / — |
 | `OnDeviceCodeError` | `error` |
-| `OnAccountUpgraded` | `profile, migration` (`migratedGames` / `migratedScoreboards`) |
-| `OnProfileLoaded` | `nickname, score, streak, achievements, playCount` |
+| `OnAccountUpgraded` / `OnAccountUpgradeFailed` | `profile, migration` (`migratedGames` / `migratedScoreboards`) / `error` |
+| `OnProfileLoaded` / `OnNoProfile` | `nickname, score, streak, achievements, playCount` / — (brand-new player, no profile yet) |
 | `OnNicknameChanged` / `OnNicknameError` | `nickname` / `error` |
 | `OnArchivedScoreboardLoaded` | `archiveId, config, entries` |
 
-Full method and event reference lives in the [SDK repo README](https://github.com/cheddatech/CheddaBoards-Unity).
+Full method and event reference lives in the [SDK repo README](https://github.com/cheddatech/cheddaboards-unity).
 
 ## Common issues
 
@@ -252,4 +255,4 @@ Full method and event reference lives in the [SDK repo README](https://github.co
 
 Full error reference: [Errors](/api/errors).
 
-**See also:** [REST API](/quickstart/rest) · [Authentication](/api/authentication) · [Anti-cheat](/concepts/anti-cheat) · [What's stored](/concepts/data-model) · [Unity SDK repo](https://github.com/cheddatech/CheddaBoards-Unity)
+**See also:** [REST API](/quickstart/rest) · [Authentication](/api/authentication) · [Anti-cheat](/concepts/anti-cheat) · [What's stored](/concepts/data-model) · [Unity SDK repo](https://github.com/cheddatech/cheddaboards-unity)

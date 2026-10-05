@@ -81,7 +81,9 @@ Only call `cancel_device_code()` on the explicit action. Calling it on every clo
 Since v2.3.0 the SDK writes the pending device code to `user://` as soon as it's issued, and clears it on approval, expiry, or cancel. This matters most on web builds, where a tab reload used to throw the code away while the player was mid-sign-in on their phone.
 
 - `login_with_device_code()` reuses a pending code if one exists — `device_code_received` fires again with the same code, URL, and QR, and polling resumes. Pass `force_new = true` to discard it and mint a fresh one.
-- `has_pending_device_code()` tells you whether one is waiting, so you can reopen the login screen on startup rather than asking the player to scan again.
+- `has_pending_device_code()` tells you whether one is waiting, so you can reopen the login screen on startup rather than asking the player to scan again. `get_device_verification_url()` and `get_device_code_seconds_remaining()` let that screen redraw a restored code with its real remaining time, which is less than the original 5 minutes.
+
+The Unity SDK (2.3.0+) does the same: `LoginWithDeviceCode(forceNew)`, `HasPendingDeviceCode()`, `GetDeviceVerificationUrl()`, `GetDeviceCodeSecondsRemaining()`, with the pending code in `PlayerPrefs`.
 
 ```gdscript
 func _ready():
@@ -150,13 +152,13 @@ Always show the raw `user_code` as well. `qr_data_url` can come back null (the S
 
 ## The expiry countdown
 
-The code is valid for 5 minutes. Record the deadline when it arrives and tick it down in `_process`:
+The code is valid for 5 minutes. Record the deadline when it arrives and tick it down in `_process`. Ask the SDK for the remaining time rather than assuming 300 s, because a code restored after a reload has less than that left:
 
 ```gdscript
 var _expires_at := 0.0
 
 func _on_received(_user_code, _url, _qr):
-    _expires_at = Time.get_unix_time_from_system() + 300  # 5 minutes
+    _expires_at = Time.get_unix_time_from_system() + CheddaBoards.get_device_code_seconds_remaining()
 
 func _process(_delta):
     if _expires_at <= 0.0:

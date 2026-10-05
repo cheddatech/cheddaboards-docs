@@ -76,11 +76,11 @@ PUT /profile/nickname                # signed-in — X-Session-Token, body: { "n
 
 The rule is the same on both: **3–16 characters, letters, digits, and underscores** (`A–Z a–z 0–9 _`).
 
-- A **taken** name isn't an error — it's auto-suffixed (`Chedz` → `Chedz_1`) and the response reports the name actually applied.
+- A **taken** name isn't an error on these two endpoints — it's auto-suffixed (`Chedz` → `Chedz_1`) and the response reports the name actually applied. (A `nickname` carried on a *score submit* behaves differently: see [Player names](/concepts/player-names).)
 - A genuinely **invalid** name is rejected with one of: `Nickname must be at least 3 characters`, `Nickname must be 16 characters or less`, `Nickname can only contain letters, numbers, and underscores`. That rejection is permanent for that value — ask for a different name rather than retrying.
 
 ::: warning An anonymous player must exist server-side before a rename sticks
-An anonymous player isn't created on the backend until their **first score submit** — before that there's no server record for the nickname endpoint to update. Two clean ways to name a brand-new player: include `nickname` in their **first score submit** (a submit that carries the field sets the name — see [Scores](/quickstart/rest#nicknames)), or let the server assign its generated `Player_1248`-style name and offer the rename once the first score has landed. (The official SDKs handle the pre-profile case for you: since Godot SDK 2.2.7 and the current Unity SDK, a rename fired before the player exists applies locally, rides the first submit, and re-syncs automatically once the profile loads — no need to gate your rename UI.)
+An anonymous player isn't created on the backend until their **first score submit** — before that there's no server record for the nickname endpoint to update. Two clean ways to name a brand-new player: include `nickname` in their **first score submit** (if that name is free the profile is created with it; if it's taken the profile is created as `Player_1248` instead, with no suffixing on this path), or let the server assign the generated name and offer a rename once the first score has landed. The official SDKs (Godot 2.2.7+, Unity 2.3.0+) hold a pre-profile rename locally and send it with the first submit; the name the server actually stored arrives on the next profile load. The full picture, with copy-paste name-entry flows, is on [Player names](/concepts/player-names).
 :::
 
 ## Identity, briefly

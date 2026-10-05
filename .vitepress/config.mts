@@ -68,6 +68,7 @@ export default defineConfig({
         items: [
           { text: 'Data model', link: '/concepts/data-model' },
           { text: 'Players and accounts', link: '/concepts/accounts' },
+          { text: 'Player names', link: '/concepts/player-names' },
           { text: 'Device code login', link: '/concepts/device-code' },
           { text: 'Timed leaderboards', link: '/concepts/timed-leaderboards' },
           { text: 'Category boards', link: '/concepts/category-boards' },
