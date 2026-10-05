@@ -2770,7 +2770,7 @@ cb.LoginAnonymous();        // right
 cb.LoginAnonymous("Alex");  // wrong, unless Alex just typed it in
 ```
 
-Any name you pass becomes the current nickname and is sent with the next submit. For an existing player that means: if the name is free, they are **silently renamed**; if it's taken, nothing happens and they keep their old name, with no error either way. Passing a name every launch (a saved name, a default, a random one) is how players end up renamed, how a returning player's `Chicken` becomes `Player_1248`, and how a leaderboard fills with one player under five names.
+Any name you pass becomes the current nickname and is sent with the next submit. For an existing player that means: if the name is free, they are **silently renamed**; if it's taken, nothing happens and they keep their old name, with no error either way. Passing a name every launch (a saved name, a default, a random one) is how players end up renamed, how a returning player's `Alex` becomes `Player_1248`, and how a leaderboard fills with one player under five names.
 
 Leave it empty. Returning players keep their stored name automatically. Brand-new players get a server-assigned name on their first submit, unless they pick one first (rule 3).
 
