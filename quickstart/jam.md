@@ -46,7 +46,7 @@ That's the whole integration. Full walkthrough: [Godot quick start](/quickstart/
 
 ### Unity — one file
 
-Copy `CheddaBoards.cs` from the [Unity SDK repo](https://github.com/cheddatech/CheddaBoards-Unity) into your project — no packages, no scene setup:
+Copy `CheddaBoards.cs` from the [Unity SDK repo](https://github.com/cheddatech/cheddaboards-unity) into your project — no packages, no scene setup:
 
 ```csharp
 var cb = CheddaBoards.Instance;

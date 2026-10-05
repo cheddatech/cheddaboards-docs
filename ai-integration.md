@@ -60,9 +60,9 @@ dev_<unix-seconds>_<8 hex chars>
 
 Send it as `playerId`. The first `POST /scores` creates the profile. If no `nickname` is supplied the server assigns one like `Player_1248`.
 
-Nickname rule everywhere: **3–16 characters, `A–Z a–z 0–9 _` only**. A taken name is auto-suffixed (`Chedz` → `Chedz_1`) and the response reports the name actually applied. An invalid name returns 400 and the rejection is permanent for that value; do not retry it.
+Nickname rule everywhere: **3–16 characters, `A–Z a–z 0–9 _` only**. On the two nickname-change endpoints a taken name is auto-suffixed (`Chedz` → `Chedz_1`) and the response reports the name actually applied. An invalid name returns 400 and the rejection is permanent for that value; do not retry it.
 
-`nickname` on `POST /scores` is optional and **presence is meaning**: including it renames the player. Only include it on the submit immediately after the player chose a name (typically their first submit). Otherwise omit the field.
+`nickname` on `POST /scores` is optional and **presence is meaning**: including it renames the player if the name is free and is silently ignored if it's taken (on a first submit a taken name falls back to `Player_N`). Only include it on the submit immediately after the player chose a name (typically their first submit). Otherwise omit the field. Never pass a stored or generated name into the SDK login call (`login_anonymous()` / `LoginAnonymous()`); that is the most common way players get renamed. See https://docs.cheddaboards.com/concepts/player-names
 
 ## 5. Endpoints
 
@@ -194,7 +194,7 @@ on any 401/403 with a session: delete sessionId, continue anonymously
 
 **Godot 3.6 addon**: same API, GDScript 3 syntax (`yield`, `connect("signal", self, "method")`, `instance()`). https://github.com/cheddatech/cheddaboards-godot3-addon
 
-**Unity**: copy `CheddaBoards.cs` into `Assets/Scripts`. Singleton `CheddaBoards.Instance`; `SetApiKey`, `SetGameId`, `LoginAnonymous(name)`, `StartPlaySession()`, `SubmitScore(score, streak)`, `GetAlltimeLeaderboard()`, events `OnLoginSuccess`, `OnScoreSubmitted`, `OnScoreboardLoaded`. Pure `UnityWebRequest`, no packages. https://github.com/cheddatech/CheddaBoards-Unity
+**Unity**: copy `CheddaBoards.cs` into `Assets/Scripts`. Singleton `CheddaBoards.Instance`; `SetApiKey`, `SetGameId`, `LoginAnonymous()` (no name; a passed name is written to the server on the next submit), `StartPlaySession()`, `SubmitScore(score, streak)`, `GetAlltimeLeaderboard()`, events `OnLoginSuccess`, `OnScoreSubmitted`, `OnScoreboardLoaded`. Pure `UnityWebRequest`, no packages. https://github.com/cheddatech/cheddaboards-unity
 
 ## 14. Things not to do
 

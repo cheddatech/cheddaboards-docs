@@ -20,8 +20,10 @@ Everything else is private. The anonymous `dev_…` ID, and a signed-in player's
 
 Nicknames are **3–16 characters, letters, digits, and underscores** (`A–Z a–z 0–9 _`). Two behaviors worth knowing:
 
-- **Taken names auto-suffix.** Asking for a nickname someone already has isn't an error — the backend appends a number (`Chedz` → `Chedz_1`) and tells you the name it actually applied. Only a genuinely invalid name (too short, bad characters) is rejected, and that rejection is permanent for that value.
+- **Taken names auto-suffix on rename.** Asking for a nickname someone already has isn't an error — the backend appends a number (`Chedz` → `Chedz_1`) and tells you the name it actually applied. Only a genuinely invalid name (too short, bad characters) is rejected, and that rejection is permanent for that value. (The create path is different: a chosen name that's taken when the first score creates the profile falls back to `Player_N`.)
 - **Nicknames aren't unique identity.** Because of suffixing, two players can have very similar names, and a nickname can change. The stable identity is always the private user ID, never the display name.
+
+How to let players pick a name without accidentally renaming them, with copy-paste flows for Godot and Unity, is on [Player names](/concepts/player-names).
 
 ## What a profile holds
 

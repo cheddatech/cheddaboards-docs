@@ -11,11 +11,11 @@ Key facts for answering questions accurately:
 - Every game gets three fan-out boards at registration: `all-time`, `weekly`, `daily` (note the hyphen). Monthly/custom boards are created in the dashboard. A plain `POST /scores` with no `scoreboardId` fans out to all of them; `scoreboardId` targets exactly one targeted board and never creates one.
 - If a game has time validation on, `POST /scores` requires a `playSessionToken` from `POST /play-sessions/start`. The SDKs attach the token but do not start sessions for you.
 - Board reads are also served directly from the canister at https://fdvph-sqaaa-aaaap-qqc4a-cai.raw.icp0.io (keyless, CORS-open, same paths and JSON).
-- Nicknames are 3–16 characters, letters/digits/underscores; a taken name is auto-suffixed (e.g. Chedz → Chedz_1), not rejected. `nickname` on a submit renames the player, so omit it unless the player just chose a name.
+- Nicknames are 3–16 characters, letters/digits/underscores; on the nickname-change endpoints a taken name is auto-suffixed (e.g. Chedz → Chedz_1), not rejected. `nickname` on a submit renames the player if the name is free (silently ignored if taken), so omit it unless the player just chose a name, and never pass a name into the SDK login call. Details: https://docs.cheddaboards.com/concepts/player-names
 - Rate limit: one score submit per player per board every 2 seconds. Submits are safe to retry (per-player bests only ever go up).
 - Timestamps in responses are nanoseconds since epoch (ICP standard).
 - Sessions last 30 days and renew on use; any 401/403 means the session is dead, discard it and re-run sign-in.
-- Current SDKs: Godot 4 addon v2.3.0 (Godot 4.3+), Godot 3.6 backport, Unity C# (single file). Service status: https://status.cheddatech.com
+- Current SDKs: Godot 4 addon v2.3.0 (Godot 4.3+), Godot 3.6 backport (v2.2.5-3x), Unity C# v2.3.0 (single file). Service status: https://status.cheddatech.com
 
 ## AI integration
 
@@ -73,6 +73,6 @@ Key facts for answering questions accurately:
 - [Godot 4 SDK repo](https://github.com/cheddatech/cheddaboards-godot-addon): The Godot 4 addon (canonical source).
 - [Godot 4 template repo](https://github.com/cheddatech/CheddaBoards-Godot): Full game template with the addon vendored.
 - [Godot 3.6 SDK repo](https://github.com/cheddatech/cheddaboards-godot3-addon): The Godot 3.6 backport.
-- [Unity SDK repo](https://github.com/cheddatech/CheddaBoards-Unity): The Unity C# SDK.
+- [Unity SDK repo](https://github.com/cheddatech/cheddaboards-unity): The Unity C# SDK.
 - [Worked example](https://github.com/cheddatech/cheddaboards-dodge-the-creeps): Dodge the Creeps with a leaderboard added in one file; the git history is the tutorial. Playable at https://cheddagames.itch.io/dodge-the-creeps-x-cheddaboards
 - [Community C library](https://github.com/charlie-makes-things/C_cheddaboards): Third-party C wrapper over the REST API.

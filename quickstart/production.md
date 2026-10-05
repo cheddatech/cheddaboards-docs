@@ -7,6 +7,7 @@ A pre-release pass for games shipping with CheddaBoards. Everything on this list
 - **Real API key in the build.** Templates and examples ship with a placeholder — confirm your build carries your actual `cb_...` key.
 - **Game ID matches the dashboard exactly.** A mismatch usually shows up as an empty leaderboard, not an error.
 - **Debug logging off.** Turn off the SDK's debug output before shipping.
+- **Login call takes no name.** `login_anonymous()` / `LoginAnonymous()` with no argument; a name passed there is written to the server on the next submit and renames returning players. See [Player names](/concepts/player-names).
 
 ## Anti-cheat
 

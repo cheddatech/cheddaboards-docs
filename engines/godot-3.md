@@ -106,6 +106,6 @@ The Godot 4 SDK fixed three bugs in 2.2.7 that are still present in the 3.x SDK:
 
 ## What's not backported
 
-Because the 3.x SDK tracks v2.2.5, anything added to the Godot 4 SDK after that (see its [changelog](https://github.com/cheddatech/cheddaboards-godot-addon)) may not be present. Breaking bugs get fixed; new features land in the Godot 4 SDK first. If you need something that isn't there, a PR to the [3.x repo](https://github.com/cheddatech/cheddaboards-godot3-addon) is welcome.
+The 2.3.0 device-code additions (a pending code surviving a restart, `login_with_device_code(force_new)`, `has_pending_device_code()`) are also not in the 3.x SDK yet. Because the 3.x SDK tracks v2.2.5, anything added to the Godot 4 SDK after that (see its [changelog](https://github.com/cheddatech/cheddaboards-godot-addon)) may not be present. Breaking bugs get fixed; new features land in the Godot 4 SDK first. If you need something that isn't there, a PR to the [3.x repo](https://github.com/cheddatech/cheddaboards-godot3-addon) is welcome.
 
 **See also:** [Godot quick start](/quickstart/godot) · [Signals reference](/engines/godot-signals) · [3.x SDK repo](https://github.com/cheddatech/cheddaboards-godot3-addon)

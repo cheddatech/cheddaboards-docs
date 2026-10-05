@@ -41,7 +41,7 @@ There's no "anonymous login" call. An anonymous player is just a **persistent ID
 
 ### Nicknames
 
-One rule everywhere: **3–16 characters, letters, digits, and underscores only** (`A–Z a–z 0–9 _`). This applies to nicknames on submits, both nickname-change endpoints, and sign-in names. On score submits the field is **optional, and presence is meaning**: a submit that includes `nickname` writes it to the player's profile (renaming them), while a submit that omits it leaves the stored name untouched — so only include it when the player has just chosen a name (see §1). An invalid nickname is rejected with a clear `400` — rejection is permanent for that value, so don't retry the same nickname on `nickname_error`; ask the player for another. A nickname that's merely *taken* is handled for you: the backend appends a numeric suffix (`PlayerName` → `PlayerName_1`) and tells you the name it applied.
+One rule everywhere: **3–16 characters, letters, digits, and underscores only** (`A–Z a–z 0–9 _`). This applies to nicknames on submits, both nickname-change endpoints, and sign-in names. On score submits the field is **optional, and presence is meaning**: a submit that includes `nickname` renames the player to it **if that name is free**, and silently leaves the stored name alone if it's taken (no error, no suffix); a submit that omits it never touches the name. So only include it when the player has just chosen a name (see §1). On the two **nickname-change endpoints** a taken name is handled for you: the backend appends a numeric suffix (`PlayerName` → `PlayerName_1`) and tells you the name it applied. An invalid nickname is rejected with a clear `400` on every path — rejection is permanent for that value, so don't retry the same nickname; ask the player for another. The whole model, with name-entry flows for the SDKs, is on [Player names](/concepts/player-names).
 
 ## 1. Submit a score
 
@@ -59,8 +59,8 @@ curl -X POST https://api.cheddaboards.com/scores \
 ```
 
 `nickname` is deliberately absent: a submit that includes it **renames the
-player** to that value, while a submit without it keeps whatever name they
-have. Include `"nickname"` only on the submit right after the player chose a
+player** to that value when it's free (and is silently ignored when it's
+taken), while a submit without it keeps whatever name they have. Include `"nickname"` only on the submit right after the player chose a
 name (or use the nickname-change endpoint — see the reference below). A
 brand-new player's first submit with no nickname creates the profile with a
 server-generated name (`Player_1248`) — stable until they pick their own.

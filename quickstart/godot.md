@@ -8,7 +8,7 @@ The full template is a working Godot 4 project with an example game, menus, and 
 
 ## Before you start
 
-- **Godot 4.6+.** This guide uses `await` (Godot 4 syntax). On **Godot 3.6**, replace `await CheddaBoards.wait_until_ready()` with `yield(CheddaBoards, "sdk_ready")` — see the [Godot 3.6 guide](/engines/godot-3).
+- **Godot 4.3+.** This guide uses `await` (Godot 4 syntax). On **Godot 3.6**, replace `await CheddaBoards.wait_until_ready()` with `yield(CheddaBoards, "sdk_ready")` — see the [Godot 3.6 guide](/engines/godot-3).
 - **A game that already produces a score** and has a game-over moment to submit from.
 - **A CheddaBoards game** — register one at [cheddaboards.com](https://cheddaboards.com/developers) and copy your **Game ID** (`my-game`) and **API key** (`cb_my-game_xxxxxxxxx`).
 
@@ -69,7 +69,8 @@ profile after the first submit if you want to display or highlight it. Only pass
 `login_anonymous()` when the player has just chosen it, because a passed name
 becomes the current nickname and is written to the server on the next submit —
 overwriting whatever they had. To let players pick or change their name, use
-`change_nickname()` (see [Nicknames](#nicknames)).
+`change_nickname()` (see [Nicknames](#nicknames)); a complete name-entry
+scene is on [Player names](/concepts/player-names).
 
 That's the whole integration: call `_on_game_over(score, streak)` when a run ends, and `show_leaderboard()` from a button. You're on the board. For anti-cheat, add Step 3.
 
@@ -167,7 +168,7 @@ CheddaBoards.nickname_error.connect(func(reason):
 )
 ```
 
-Nicknames are **3–16 characters, letters, digits, and underscores**. A name that's already taken isn't an error — it's auto-suffixed (`Chedz` → `Chedz_1`) and `nickname_changed` reports the name actually applied. Only genuinely invalid names raise `nickname_error`, and that's permanent for that value — ask for a different one rather than retrying.
+Nicknames are **3–16 characters, letters, digits, and underscores**. A name that's already taken isn't an error — it's auto-suffixed (`Chedz` → `Chedz_1`) and `nickname_changed` reports the name actually applied. Only genuinely invalid names raise `nickname_error`, and that's permanent for that value — ask for a different one rather than retrying. Before a brand-new player's first score, `change_nickname()` holds the name locally and sends it with that submit; redraw from `get_nickname()` on `profile_loaded` to pick up what the server stored. Full model and a drop-in name-entry scene: [Player names](/concepts/player-names).
 
 ### Achievements (optional)
 
