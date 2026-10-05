@@ -11,11 +11,11 @@ Key facts for answering questions accurately:
 - Every game gets three fan-out boards at registration: `all-time`, `weekly`, `daily` (note the hyphen). Monthly/custom boards are created in the dashboard. A plain `POST /scores` with no `scoreboardId` fans out to all of them; `scoreboardId` targets exactly one targeted board and never creates one.
 - If a game has time validation on, `POST /scores` requires a `playSessionToken` from `POST /play-sessions/start`. The SDKs attach the token but do not start sessions for you.
 - Board reads are also served directly from the canister at https://fdvph-sqaaa-aaaap-qqc4a-cai.raw.icp0.io (keyless, CORS-open, same paths and JSON).
-- Nicknames are 3–16 characters, letters/digits/underscores; a taken name is auto-suffixed (e.g. Chedz → Chedz_1), not rejected. `nickname` on a submit renames the player, so omit it unless the player just chose a name.
+- Nicknames are 3–16 characters, letters/digits/underscores; on the nickname-change endpoints a taken name is auto-suffixed (e.g. Chedz → Chedz_1), not rejected. `nickname` on a submit renames the player if the name is free (silently ignored if taken), so omit it unless the player just chose a name, and never pass a name into the SDK login call. Details: https://docs.cheddaboards.com/concepts/player-names
 - Rate limit: one score submit per player per board every 2 seconds. Submits are safe to retry (per-player bests only ever go up).
 - Timestamps in responses are nanoseconds since epoch (ICP standard).
 - Sessions last 30 days and renew on use; any 401/403 means the session is dead, discard it and re-run sign-in.
-- Current SDKs: Godot 4 addon v2.3.0 (Godot 4.3+), Godot 3.6 backport, Unity C# (single file). Service status: https://status.cheddatech.com
+- Current SDKs: Godot 4 addon v2.3.0 (Godot 4.3+), Godot 3.6 backport (v2.2.5-3x), Unity C# v2.3.0 (single file). Service status: https://status.cheddatech.com
 
 ## AI integration
 
@@ -73,7 +73,7 @@ Key facts for answering questions accurately:
 - [Godot 4 SDK repo](https://github.com/cheddatech/cheddaboards-godot-addon): The Godot 4 addon (canonical source).
 - [Godot 4 template repo](https://github.com/cheddatech/CheddaBoards-Godot): Full game template with the addon vendored.
 - [Godot 3.6 SDK repo](https://github.com/cheddatech/cheddaboards-godot3-addon): The Godot 3.6 backport.
-- [Unity SDK repo](https://github.com/cheddatech/CheddaBoards-Unity): The Unity C# SDK.
+- [Unity SDK repo](https://github.com/cheddatech/cheddaboards-unity): The Unity C# SDK.
 - [Worked example](https://github.com/cheddatech/cheddaboards-dodge-the-creeps): Dodge the Creeps with a leaderboard added in one file; the git history is the tutorial. Playable at https://cheddagames.itch.io/dodge-the-creeps-x-cheddaboards
 - [Community C library](https://github.com/charlie-makes-things/C_cheddaboards): Third-party C wrapper over the REST API.
 
@@ -138,9 +138,9 @@ dev_<unix-seconds>_<8 hex chars>
 
 Send it as `playerId`. The first `POST /scores` creates the profile. If no `nickname` is supplied the server assigns one like `Player_1248`.
 
-Nickname rule everywhere: **3–16 characters, `A–Z a–z 0–9 _` only**. A taken name is auto-suffixed (`Chedz` → `Chedz_1`) and the response reports the name actually applied. An invalid name returns 400 and the rejection is permanent for that value; do not retry it.
+Nickname rule everywhere: **3–16 characters, `A–Z a–z 0–9 _` only**. On the two nickname-change endpoints a taken name is auto-suffixed (`Chedz` → `Chedz_1`) and the response reports the name actually applied. An invalid name returns 400 and the rejection is permanent for that value; do not retry it.
 
-`nickname` on `POST /scores` is optional and **presence is meaning**: including it renames the player. Only include it on the submit immediately after the player chose a name (typically their first submit). Otherwise omit the field.
+`nickname` on `POST /scores` is optional and **presence is meaning**: including it renames the player if the name is free and is silently ignored if it's taken (on a first submit a taken name falls back to `Player_N`). Only include it on the submit immediately after the player chose a name (typically their first submit). Otherwise omit the field. Never pass a stored or generated name into the SDK login call (`login_anonymous()` / `LoginAnonymous()`); that is the most common way players get renamed. See https://docs.cheddaboards.com/concepts/player-names
 
 ## 5. Endpoints
 
@@ -272,7 +272,7 @@ on any 401/403 with a session: delete sessionId, continue anonymously
 
 **Godot 3.6 addon**: same API, GDScript 3 syntax (`yield`, `connect("signal", self, "method")`, `instance()`). https://github.com/cheddatech/cheddaboards-godot3-addon
 
-**Unity**: copy `CheddaBoards.cs` into `Assets/Scripts`. Singleton `CheddaBoards.Instance`; `SetApiKey`, `SetGameId`, `LoginAnonymous(name)`, `StartPlaySession()`, `SubmitScore(score, streak)`, `GetAlltimeLeaderboard()`, events `OnLoginSuccess`, `OnScoreSubmitted`, `OnScoreboardLoaded`. Pure `UnityWebRequest`, no packages. https://github.com/cheddatech/CheddaBoards-Unity
+**Unity**: copy `CheddaBoards.cs` into `Assets/Scripts`. Singleton `CheddaBoards.Instance`; `SetApiKey`, `SetGameId`, `LoginAnonymous()` (no name; a passed name is written to the server on the next submit), `StartPlaySession()`, `SubmitScore(score, streak)`, `GetAlltimeLeaderboard()`, events `OnLoginSuccess`, `OnScoreSubmitted`, `OnScoreboardLoaded`. Pure `UnityWebRequest`, no packages. https://github.com/cheddatech/cheddaboards-unity
 
 ## 14. Things not to do
 
@@ -338,7 +338,7 @@ There's no "anonymous login" call. An anonymous player is just a **persistent ID
 
 ### Nicknames
 
-One rule everywhere: **3–16 characters, letters, digits, and underscores only** (`A–Z a–z 0–9 _`). This applies to nicknames on submits, both nickname-change endpoints, and sign-in names. On score submits the field is **optional, and presence is meaning**: a submit that includes `nickname` writes it to the player's profile (renaming them), while a submit that omits it leaves the stored name untouched — so only include it when the player has just chosen a name (see §1). An invalid nickname is rejected with a clear `400` — rejection is permanent for that value, so don't retry the same nickname on `nickname_error`; ask the player for another. A nickname that's merely *taken* is handled for you: the backend appends a numeric suffix (`PlayerName` → `PlayerName_1`) and tells you the name it applied.
+One rule everywhere: **3–16 characters, letters, digits, and underscores only** (`A–Z a–z 0–9 _`). This applies to nicknames on submits, both nickname-change endpoints, and sign-in names. On score submits the field is **optional, and presence is meaning**: a submit that includes `nickname` renames the player to it **if that name is free**, and silently leaves the stored name alone if it's taken (no error, no suffix); a submit that omits it never touches the name. So only include it when the player has just chosen a name (see §1). On the two **nickname-change endpoints** a taken name is handled for you: the backend appends a numeric suffix (`PlayerName` → `PlayerName_1`) and tells you the name it applied. An invalid nickname is rejected with a clear `400` on every path — rejection is permanent for that value, so don't retry the same nickname; ask the player for another. The whole model, with name-entry flows for the SDKs, is on [Player names](https://docs.cheddaboards.com/concepts/player-names).
 
 ## 1. Submit a score
 
@@ -356,8 +356,8 @@ curl -X POST https://api.cheddaboards.com/scores \
 ```
 
 `nickname` is deliberately absent: a submit that includes it **renames the
-player** to that value, while a submit without it keeps whatever name they
-have. Include `"nickname"` only on the submit right after the player chose a
+player** to that value when it's free (and is silently ignored when it's
+taken), while a submit without it keeps whatever name they have. Include `"nickname"` only on the submit right after the player chose a
 name (or use the nickname-change endpoint — see the reference below). A
 brand-new player's first submit with no nickname creates the profile with a
 server-generated name (`Player_1248`) — stable until they pick their own.
@@ -648,7 +648,7 @@ The full template is a working Godot 4 project with an example game, menus, and 
 
 ## Before you start
 
-- **Godot 4.6+.** This guide uses `await` (Godot 4 syntax). On **Godot 3.6**, replace `await CheddaBoards.wait_until_ready()` with `yield(CheddaBoards, "sdk_ready")` — see the [Godot 3.6 guide](https://docs.cheddaboards.com/engines/godot-3).
+- **Godot 4.3+.** This guide uses `await` (Godot 4 syntax). On **Godot 3.6**, replace `await CheddaBoards.wait_until_ready()` with `yield(CheddaBoards, "sdk_ready")` — see the [Godot 3.6 guide](https://docs.cheddaboards.com/engines/godot-3).
 - **A game that already produces a score** and has a game-over moment to submit from.
 - **A CheddaBoards game** — register one at [cheddaboards.com](https://cheddaboards.com/developers) and copy your **Game ID** (`my-game`) and **API key** (`cb_my-game_xxxxxxxxx`).
 
@@ -709,7 +709,8 @@ profile after the first submit if you want to display or highlight it. Only pass
 `login_anonymous()` when the player has just chosen it, because a passed name
 becomes the current nickname and is written to the server on the next submit —
 overwriting whatever they had. To let players pick or change their name, use
-`change_nickname()` (see [Nicknames](#nicknames)).
+`change_nickname()` (see [Nicknames](#nicknames)); a complete name-entry
+scene is on [Player names](https://docs.cheddaboards.com/concepts/player-names).
 
 That's the whole integration: call `_on_game_over(score, streak)` when a run ends, and `show_leaderboard()` from a button. You're on the board. For anti-cheat, add Step 3.
 
@@ -806,7 +807,7 @@ CheddaBoards.nickname_error.connect(func(reason):
 )
 ```
 
-Nicknames are **3–16 characters, letters, digits, and underscores**. A name that's already taken isn't an error — it's auto-suffixed (`Chedz` → `Chedz_1`) and `nickname_changed` reports the name actually applied. Only genuinely invalid names raise `nickname_error`, and that's permanent for that value — ask for a different one rather than retrying.
+Nicknames are **3–16 characters, letters, digits, and underscores**. A name that's already taken isn't an error — it's auto-suffixed (`Chedz` → `Chedz_1`) and `nickname_changed` reports the name actually applied. Only genuinely invalid names raise `nickname_error`, and that's permanent for that value — ask for a different one rather than retrying. Before a brand-new player's first score, `change_nickname()` holds the name locally and sends it with that submit; redraw from `get_nickname()` on `profile_loaded` to pick up what the server stored. Full model and a drop-in name-entry scene: [Player names](https://docs.cheddaboards.com/concepts/player-names).
 
 ### Achievements (optional)
 
@@ -867,9 +868,9 @@ Want it all at once? Skip to [the one-file example](#the-whole-thing-in-one-file
 
 ## Step 1 — Add the SDK
 
-Copy `CheddaBoards.cs` from the [CheddaBoards-Unity repo](https://github.com/cheddatech/CheddaBoards-Unity) into your project, e.g. `Assets/Scripts/CheddaBoards.cs`. That's the whole install — the SDK auto-creates its own singleton `GameObject` with `DontDestroyOnLoad`, so there's no scene setup.
+Copy `CheddaBoards.cs` from the [Unity SDK repo](https://github.com/cheddatech/cheddaboards-unity) into your project, e.g. `Assets/Scripts/CheddaBoards.cs`. That's the whole install — the SDK auto-creates its own singleton `GameObject` with `DontDestroyOnLoad`, so there's no scene setup.
 
-Prefer to start from a working example? The repo's [`Demo/`](https://github.com/cheddatech/CheddaBoards-Unity/tree/main/Demo) folder contains **CheddaClick**, a complete one-script game showing login, guest flow, play sessions, score submit, leaderboard render, and delta-synced achievements.
+Prefer to start from a working example? The repo's [`Demo/`](https://github.com/cheddatech/cheddaboards-unity/tree/main/Demo) folder contains **CheddaClick**, a complete one-script game showing login, guest flow, play sessions, score submit, leaderboard render, and delta-synced achievements.
 
 ## Step 2 — Configure and log in
 
@@ -905,7 +906,8 @@ profile after the first submit if you want to display or highlight it. Only pass
 `LoginAnonymous` when the player has just chosen it, because a passed name
 becomes the current nickname and is written to the server on the next submit —
 overwriting whatever they had. To let players pick or change their name, use
-`ChangeNickname()` (see [Nicknames](#nicknames)).
+`ChangeNickname()` (see [Nicknames](#nicknames)); a complete name-entry
+panel is on [Player names](https://docs.cheddaboards.com/concepts/player-names).
 
 ## Step 3 — Submit a score
 
@@ -1049,9 +1051,11 @@ cb.LoginWithDeviceCode();
 
 Players sign in **once** — the session persists across restarts. If the server later rejects a stored session, `OnSessionExpired` fires (and `OnLogoutSuccess` with it, so a menu that handles logout falls back to its sign-in screen). Full flow: [Authentication](https://docs.cheddaboards.com/api/authentication).
 
+Two things the SDK (2.3.0+) does for you here. A pending code **survives an app restart or WebGL reload**: it's saved to `PlayerPrefs`, polling resumes on the same code, and a `LoginWithDeviceCode()` call on your login screen re-emits that code instead of minting a new one (pass `true` to force a fresh one; `HasPendingDeviceCode()`, `GetDeviceVerificationUrl()` and `GetDeviceCodeSecondsRemaining()` let you redraw a restored code with its real time left). And **closing the code popup is not cancelling**: hide the UI and leave polling running, and `OnDeviceCodeApproved` still fires when the player finishes on their phone. Only call `CancelDeviceCode()` on an explicit "Cancel", since an approval given after that call is never picked up. If the player was anonymous, `OnAccountUpgraded` (or `OnAccountUpgradeFailed`) follows the approval once their progress has merged — see [Device code login](https://docs.cheddaboards.com/concepts/device-code).
+
 ## Nicknames
 
-Nicknames are **3–16 characters, letters, digits, and underscores**. A taken name is auto-suffixed (`Chedz` → `Chedz_1`) rather than rejected; only genuinely invalid names raise `OnNicknameError`, and that's permanent for that value — ask for a different one.
+Nicknames are **3–16 characters, letters, digits, and underscores**. A taken name is auto-suffixed (`Chedz` → `Chedz_1`) rather than rejected; only genuinely invalid names raise `OnNicknameError`, and that's permanent for that value — ask for a different one. Before a brand-new player's first score, `ChangeNickname()` holds the name locally and sends it with that submit; redraw from `GetNickname()` on `OnProfileLoaded` to pick up what the server stored. Full model and a drop-in name-entry panel: [Player names](https://docs.cheddaboards.com/concepts/player-names).
 
 ```csharp
 cb.OnNicknameChanged += (newNick) => Debug.Log($"Now: {newNick}");
@@ -1089,12 +1093,12 @@ The events you'll connect to most:
 | `OnDeviceCodeReceived` | `code, url, qrDataUrl` |
 | `OnDeviceCodeApproved` / `OnDeviceCodeExpired` | `nickname` / — |
 | `OnDeviceCodeError` | `error` |
-| `OnAccountUpgraded` | `profile, migration` (`migratedGames` / `migratedScoreboards`) |
-| `OnProfileLoaded` | `nickname, score, streak, achievements, playCount` |
+| `OnAccountUpgraded` / `OnAccountUpgradeFailed` | `profile, migration` (`migratedGames` / `migratedScoreboards`) / `error` |
+| `OnProfileLoaded` / `OnNoProfile` | `nickname, score, streak, achievements, playCount` / — (brand-new player, no profile yet) |
 | `OnNicknameChanged` / `OnNicknameError` | `nickname` / `error` |
 | `OnArchivedScoreboardLoaded` | `archiveId, config, entries` |
 
-Full method and event reference lives in the [SDK repo README](https://github.com/cheddatech/CheddaBoards-Unity).
+Full method and event reference lives in the [SDK repo README](https://github.com/cheddatech/cheddaboards-unity).
 
 ## Common issues
 
@@ -1108,7 +1112,7 @@ Full method and event reference lives in the [SDK repo README](https://github.co
 
 Full error reference: [Errors](https://docs.cheddaboards.com/api/errors).
 
-**See also:** [REST API](https://docs.cheddaboards.com/quickstart/rest) · [Authentication](https://docs.cheddaboards.com/api/authentication) · [Anti-cheat](https://docs.cheddaboards.com/concepts/anti-cheat) · [What's stored](https://docs.cheddaboards.com/concepts/data-model) · [Unity SDK repo](https://github.com/cheddatech/CheddaBoards-Unity)
+**See also:** [REST API](https://docs.cheddaboards.com/quickstart/rest) · [Authentication](https://docs.cheddaboards.com/api/authentication) · [Anti-cheat](https://docs.cheddaboards.com/concepts/anti-cheat) · [What's stored](https://docs.cheddaboards.com/concepts/data-model) · [Unity SDK repo](https://github.com/cheddatech/cheddaboards-unity)
 
 ---
 
@@ -1123,6 +1127,7 @@ A pre-release pass for games shipping with CheddaBoards. Everything on this list
 - **Real API key in the build.** Templates and examples ship with a placeholder — confirm your build carries your actual `cb_...` key.
 - **Game ID matches the dashboard exactly.** A mismatch usually shows up as an empty leaderboard, not an error.
 - **Debug logging off.** Turn off the SDK's debug output before shipping.
+- **Login call takes no name.** `login_anonymous()` / `LoginAnonymous()` with no argument; a name passed there is written to the server on the next submit and renames returning players. See [Player names](https://docs.cheddaboards.com/concepts/player-names).
 
 ## Anti-cheat
 
@@ -1204,7 +1209,7 @@ That's the whole integration. Full walkthrough: [Godot quick start](https://docs
 
 ### Unity — one file
 
-Copy `CheddaBoards.cs` from the [Unity SDK repo](https://github.com/cheddatech/CheddaBoards-Unity) into your project — no packages, no scene setup:
+Copy `CheddaBoards.cs` from the [Unity SDK repo](https://github.com/cheddatech/cheddaboards-unity) into your project — no packages, no scene setup:
 
 ```csharp
 var cb = CheddaBoards.Instance;
@@ -1352,7 +1357,7 @@ No OAuth SDKs, no browser popups, no platform-specific branching — every platf
 
 ## Anonymous identity
 
-There's no anonymous "login" call. An anonymous player is a **persistent ID you generate and store client-side** (the official SDKs use `dev_<unixtime>_<random>`). Send it as `playerId` with the API key; the first score submission creates the profile. A submit with no `nickname` field creates the profile with a **server-generated name** (`Player_1248`) — stable until the player picks their own; including `nickname` on a submit renames the player, so only send it when they've just chosen (see the [REST quick start](https://docs.cheddaboards.com/quickstart/rest#nicknames)).
+There's no anonymous "login" call. An anonymous player is a **persistent ID you generate and store client-side** (the official SDKs use `dev_<unixtime>_<random>`). Send it as `playerId` with the API key; the first score submission creates the profile. A submit with no `nickname` field creates the profile with a **server-generated name** (`Player_1248`) — stable until the player picks their own; including `nickname` on a submit renames the player if that name is free (a taken name is silently ignored), so only send it when they've just chosen (see [Player names](https://docs.cheddaboards.com/concepts/player-names)).
 
 Anonymous progress is real progress — scores, streaks, plays, and achievements all live server-side and survive an upgrade to a verified account.
 
@@ -1748,11 +1753,11 @@ PUT /profile/nickname                # signed-in — X-Session-Token, body: { "n
 
 The rule is the same on both: **3–16 characters, letters, digits, and underscores** (`A–Z a–z 0–9 _`).
 
-- A **taken** name isn't an error — it's auto-suffixed (`Chedz` → `Chedz_1`) and the response reports the name actually applied.
+- A **taken** name isn't an error on these two endpoints — it's auto-suffixed (`Chedz` → `Chedz_1`) and the response reports the name actually applied. (A `nickname` carried on a *score submit* behaves differently: see [Player names](https://docs.cheddaboards.com/concepts/player-names).)
 - A genuinely **invalid** name is rejected with one of: `Nickname must be at least 3 characters`, `Nickname must be 16 characters or less`, `Nickname can only contain letters, numbers, and underscores`. That rejection is permanent for that value — ask for a different name rather than retrying.
 
 > **An anonymous player must exist server-side before a rename sticks**
-An anonymous player isn't created on the backend until their **first score submit** — before that there's no server record for the nickname endpoint to update. Two clean ways to name a brand-new player: include `nickname` in their **first score submit** (a submit that carries the field sets the name — see [Scores](https://docs.cheddaboards.com/quickstart/rest#nicknames)), or let the server assign its generated `Player_1248`-style name and offer the rename once the first score has landed. (The official SDKs handle the pre-profile case for you: since Godot SDK 2.2.7 and the current Unity SDK, a rename fired before the player exists applies locally, rides the first submit, and re-syncs automatically once the profile loads — no need to gate your rename UI.)
+An anonymous player isn't created on the backend until their **first score submit** — before that there's no server record for the nickname endpoint to update. Two clean ways to name a brand-new player: include `nickname` in their **first score submit** (if that name is free the profile is created with it; if it's taken the profile is created as `Player_1248` instead, with no suffixing on this path), or let the server assign the generated name and offer a rename once the first score has landed. The official SDKs (Godot 2.2.7+, Unity 2.3.0+) hold a pre-profile rename locally and send it with the first submit; the name the server actually stored arrives on the next profile load. The full picture, with copy-paste name-entry flows, is on [Player names](https://docs.cheddaboards.com/concepts/player-names).
 
 ## Identity, briefly
 
@@ -2335,7 +2340,7 @@ The Godot 4 SDK fixed three bugs in 2.2.7 that are still present in the 3.x SDK:
 
 ## What's not backported
 
-Because the 3.x SDK tracks v2.2.5, anything added to the Godot 4 SDK after that (see its [changelog](https://github.com/cheddatech/cheddaboards-godot-addon)) may not be present. Breaking bugs get fixed; new features land in the Godot 4 SDK first. If you need something that isn't there, a PR to the [3.x repo](https://github.com/cheddatech/cheddaboards-godot3-addon) is welcome.
+The 2.3.0 device-code additions (a pending code surviving a restart, `login_with_device_code(force_new)`, `has_pending_device_code()`) are also not in the 3.x SDK yet. Because the 3.x SDK tracks v2.2.5, anything added to the Godot 4 SDK after that (see its [changelog](https://github.com/cheddatech/cheddaboards-godot-addon)) may not be present. Breaking bugs get fixed; new features land in the Godot 4 SDK first. If you need something that isn't there, a PR to the [3.x repo](https://github.com/cheddatech/cheddaboards-godot3-addon) is welcome.
 
 **See also:** [Godot quick start](https://docs.cheddaboards.com/quickstart/godot) · [Signals reference](https://docs.cheddaboards.com/engines/godot-signals) · [3.x SDK repo](https://github.com/cheddatech/cheddaboards-godot3-addon)
 
@@ -2702,8 +2707,10 @@ Everything else is private. The anonymous `dev_…` ID, and a signed-in player's
 
 Nicknames are **3–16 characters, letters, digits, and underscores** (`A–Z a–z 0–9 _`). Two behaviors worth knowing:
 
-- **Taken names auto-suffix.** Asking for a nickname someone already has isn't an error — the backend appends a number (`Chedz` → `Chedz_1`) and tells you the name it actually applied. Only a genuinely invalid name (too short, bad characters) is rejected, and that rejection is permanent for that value.
+- **Taken names auto-suffix on rename.** Asking for a nickname someone already has isn't an error — the backend appends a number (`Chedz` → `Chedz_1`) and tells you the name it actually applied. Only a genuinely invalid name (too short, bad characters) is rejected, and that rejection is permanent for that value. (The create path is different: a chosen name that's taken when the first score creates the profile falls back to `Player_N`.)
 - **Nicknames aren't unique identity.** Because of suffixing, two players can have very similar names, and a nickname can change. The stable identity is always the private user ID, never the display name.
+
+How to let players pick a name without accidentally renaming them, with copy-paste flows for Godot and Unity, is on [Player names](https://docs.cheddaboards.com/concepts/player-names).
 
 ## What a profile holds
 
@@ -2815,7 +2822,9 @@ Only call `cancel_device_code()` on the explicit action. Calling it on every clo
 Since v2.3.0 the SDK writes the pending device code to `user://` as soon as it's issued, and clears it on approval, expiry, or cancel. This matters most on web builds, where a tab reload used to throw the code away while the player was mid-sign-in on their phone.
 
 - `login_with_device_code()` reuses a pending code if one exists — `device_code_received` fires again with the same code, URL, and QR, and polling resumes. Pass `force_new = true` to discard it and mint a fresh one.
-- `has_pending_device_code()` tells you whether one is waiting, so you can reopen the login screen on startup rather than asking the player to scan again.
+- `has_pending_device_code()` tells you whether one is waiting, so you can reopen the login screen on startup rather than asking the player to scan again. `get_device_verification_url()` and `get_device_code_seconds_remaining()` let that screen redraw a restored code with its real remaining time, which is less than the original 5 minutes.
+
+The Unity SDK (2.3.0+) does the same: `LoginWithDeviceCode(forceNew)`, `HasPendingDeviceCode()`, `GetDeviceVerificationUrl()`, `GetDeviceCodeSecondsRemaining()`, with the pending code in `PlayerPrefs`.
 
 ```gdscript
 func _ready():
@@ -2883,13 +2892,13 @@ Always show the raw `user_code` as well. `qr_data_url` can come back null (the S
 
 ## The expiry countdown
 
-The code is valid for 5 minutes. Record the deadline when it arrives and tick it down in `_process`:
+The code is valid for 5 minutes. Record the deadline when it arrives and tick it down in `_process`. Ask the SDK for the remaining time rather than assuming 300 s, because a code restored after a reload has less than that left:
 
 ```gdscript
 var _expires_at := 0.0
 
 func _on_received(_user_code, _url, _qr):
-    _expires_at = Time.get_unix_time_from_system() + 300  # 5 minutes
+    _expires_at = Time.get_unix_time_from_system() + CheddaBoards.get_device_code_seconds_remaining()
 
 func _process(_delta):
     if _expires_at <= 0.0:
