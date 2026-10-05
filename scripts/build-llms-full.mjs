@@ -35,6 +35,7 @@ const PAGES = [
   'engines/web-export',
   'concepts/data-model',
   'concepts/accounts',
+  'concepts/player-names',
   'concepts/device-code',
   'concepts/timed-leaderboards',
   'concepts/category-boards',
