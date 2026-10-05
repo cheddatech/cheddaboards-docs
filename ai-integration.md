@@ -62,7 +62,7 @@ Send it as `playerId`. The first `POST /scores` creates the profile. If no `nick
 
 Nickname rule everywhere: **3–16 characters, `A–Z a–z 0–9 _` only**. On the two nickname-change endpoints a taken name is auto-suffixed (`Chedz` → `Chedz_1`) and the response reports the name actually applied. An invalid name returns 400 and the rejection is permanent for that value; do not retry it.
 
-`nickname` on `POST /scores` is optional and **presence is meaning**: including it renames the player if the name is free and is silently ignored if it's taken (on a first submit a taken name falls back to `Player_N`). Only include it on the submit immediately after the player chose a name (typically their first submit). Otherwise omit the field. Never pass a stored or generated name into the SDK login call (`login_anonymous()` / `LoginAnonymous()`); that is the most common way players get renamed. See https://docs.cheddaboards.com/concepts/player-names
+`nickname` on `POST /scores` is optional and **presence is meaning**: including it renames the player if the name is free and is silently ignored if it's taken (on a first submit a taken name falls back to `Player_N`; the SDKs re-send the rename after the next profile load so the player gets `Name_1`, raw REST clients must call the rename endpoint). Only include it on the submit immediately after the player chose a name (typically their first submit). Otherwise omit the field. Never pass a stored or generated name into the SDK login call (`login_anonymous()` / `LoginAnonymous()`); that is the most common way players get renamed. See https://docs.cheddaboards.com/concepts/player-names
 
 ## 5. Endpoints
 
