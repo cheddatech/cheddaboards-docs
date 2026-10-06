@@ -228,7 +228,7 @@ Four steps for switching (SDK **2.3.1+**, where `set_player_id()` resets the pre
 The SDKs don't persist a `set_player_id()` override, so re-apply it from your roster on startup too.
 
 ::: warning On 2.3.0
-Switching players left the previous person's state behind, even with `logout()`, so a rename for a brand-new person after someone else had played was sent to the server and lost. Update to 2.3.1. If you must stay on 2.3.0, follow the same steps but, for a new person, pass their name once at creation (`login_anonymous(name)`) instead of calling `change_nickname()` before their first score.
+2.3.0 did not fully reset the previous person's state on a switch, so a new person's `change_nickname()` before their first score was sent to the server and lost. Update to 2.3.1. If you must stay on 2.3.0, follow the same four steps, but give a new person their name at creation with `login_anonymous(name)` instead of `change_nickname()`.
 :::
 
 Name entry per person is the normal flow from above: offer the box when `get_nickname()` is `""` after the profile is known, rename through the SDK, never pass names into login.
