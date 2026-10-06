@@ -32,6 +32,9 @@ features:
   - title: Boards for every shape of game
     details: All-time, weekly and daily boards out of the box, plus category boards for levels, modes and events.
     link: /concepts/category-boards
+  - title: One device, many players
+    details: Arcade cabinets, couch play, classroom laptops. Give each person their own name and row on the board from a single install.
+    link: /concepts/player-names#shared-devices-several-players-one-install
   - title: Yours to keep
     details: The backend and SDKs are open source. Use the hosted service or run your own.
     link: /self-hosting/overview
