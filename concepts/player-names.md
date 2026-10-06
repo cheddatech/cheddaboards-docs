@@ -216,19 +216,30 @@ Arcade cabinets, couch play, a classroom laptop, a demo machine at an event. Sev
 
 The answer is **not** to send a nickname with every score. The nickname is just a label on a profile; what makes someone a separate player is their **player ID**. On a normal install the SDK generates one `dev_…` ID per device and reuses it, so one device is one player. Sending a different nickname each time would rename that single profile back and forth, and everyone would share one row that only ever moves up.
 
-Instead, keep a small roster in the game: one player ID per person, generated once and saved locally, and make the chosen person's ID the active one before they play. Each ID is a separate profile with its own name, bests and board rows, exactly as if they were on separate devices. Linking still works per person: whoever links merges their own slot into their account.
+Instead, keep a small roster in the game: one player ID per person, generated once and saved locally, and make the chosen person's ID the active one before they play. Each ID is a separate profile with its own name, bests and board rows, exactly as if they were on separate devices.
 
-Three steps for switching (SDK **2.3.1+**, where `set_player_id()` resets the previous person's cached profile, name, pending rename and play session when the ID changes):
+Four steps for switching (SDK **2.3.1+**, where `set_player_id()` resets the previous person's cached profile, name, pending rename and play session when the ID changes):
 
-1. **Set the ID**, then **`login_anonymous()` / `LoginAnonymous()`** with no name.
-2. **Fetch the profile with `get_player_profile()` / `GetPlayerProfile()`**, not `refresh_profile()`: the refresh helper has a 2-second cooldown and silently does nothing inside it, which a quick switch can hit.
-3. **Start a new play session** when the new person's run begins. Sessions are per player.
+1. **Call `logout()` / `Logout()`** first. `set_player_id()` does not drop a signed-in session or a link code that is still waiting for approval; `logout()` does. If nobody on the device ever links an account this is a no-op, so always call it. It emits `logout_success` / `OnLogoutSuccess`: if your game sends that signal to a login screen, ignore it during a switch.
+2. **Set the ID**, then **`login_anonymous()` / `LoginAnonymous()`** with no name.
+3. **Fetch the profile with `get_player_profile()` / `GetPlayerProfile()`**, not `refresh_profile()`: the refresh helper has a 2-second cooldown and silently does nothing inside it, which a quick switch can hit.
+4. **Start a new play session** when the new person's run begins. Sessions are per player.
 
 The SDKs don't persist a `set_player_id()` override, so re-apply it from your roster on startup too.
 
 ::: warning On 2.3.0
 `set_player_id()` did not reset state, so a rename for a brand-new person after someone else had played was sent to the server and lost. Update to 2.3.1. If you must stay on 2.3.0, call `logout()` before switching and, for a new person, pass their name once at creation (`login_anonymous(name)`) instead of `change_nickname()` before their first score.
-::: Name entry per person is the normal flow from above: offer the box when `get_nickname()` is `""` after the profile is known, rename through the SDK, never pass names into login.
+:::
+
+Name entry per person is the normal flow from above: offer the box when `get_nickname()` is `""` after the profile is known, rename through the SDK, never pass names into login.
+
+### Linking on a shared device
+
+Linking uses up the slot. When someone links, their anonymous profile is merged into their account and its `dev_…` ID stops existing on the server. Selecting that slot again would start a brand-new empty player under the old ID, so remove the slot from your roster when `account_upgraded` / `OnAccountUpgraded` fires. The person's scores are safe on their account, and they stay signed in until the next switch; to play as that account on this device again later, they link again.
+
+A signed-in session belongs to one person, which is why every switch starts with `logout()`. Without it the next person's scores and renames go to the linked account, whatever player ID is set.
+
+If that's more than your game needs, the simple option is to not offer linking on shared installs at all.
 
 ### Roster: Godot 4
 
@@ -257,6 +268,7 @@ func add_player(label: String) -> int:
 func select(index: int) -> void:
 	active = index
 	_save()
+	CheddaBoards.logout()                 # drops a signed-in session or pending link code from the previous person
 	CheddaBoards.set_player_id(players[index]["id"])   # 2.3.1+: resets the previous person's state
 	CheddaBoards.login_anonymous()        # no name
 	CheddaBoards.get_player_profile()     # no cooldown; profile_loaded / no_profile then drives name entry
@@ -310,6 +322,7 @@ public static class Roster
         store.active = index;
         Save();
         var cb = CheddaBoards.Instance;
+        cb.Logout();             // drops a signed-in session or pending link code from the previous person
         cb.SetPlayerId(store.players[index].id);   // 2.3.1+: resets the previous person's state
         cb.LoginAnonymous();     // no name
         cb.GetPlayerProfile();   // no cooldown; OnProfileLoaded / OnNoProfile then drives name entry
@@ -340,6 +353,8 @@ Nothing special: `playerId` on every request is whatever you send. Generate one 
 | After signing in, the name changed to something else | Player linked an existing account; the account's name wins | Expected. Redraw from `get_nickname()` after `account_upgraded` |
 | New player shows `""` / blank | Profile hasn't loaded yet, or they haven't picked a name | Show "Guest" |
 | Several people share one device and keep overwriting each other | One device ID, so they are one profile; sending names per submit just renames it | One player ID per person, switched before they play; see [Shared devices](#shared-devices-several-players-one-install) |
+| On a shared device, the next person shows up with the previous person's name, or their scores land on someone else's row | The previous person linked an account and the switch didn't call `logout()`, so their session is still active | Call `logout()` before `set_player_id()` on every switch; see [Linking on a shared device](#linking-on-a-shared-device) |
+| On a shared device, a linked person's slot comes back empty | Linking merged that slot into their account; the old ID no longer exists | Remove the slot on `account_upgraded`; they link again to play as their account |
 
 ## Reference
 
