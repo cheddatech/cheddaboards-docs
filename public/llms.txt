@@ -12,10 +12,10 @@ Key facts for answering questions accurately:
 - If a game has time validation on, `POST /scores` requires a `playSessionToken` from `POST /play-sessions/start`. The SDKs attach the token but do not start sessions for you.
 - Board reads are also served directly from the canister at https://fdvph-sqaaa-aaaap-qqc4a-cai.raw.icp0.io (keyless, CORS-open, same paths and JSON).
 - Nicknames are 3–16 characters, letters/digits/underscores; on the nickname-change endpoints a taken name is auto-suffixed (e.g. Chedz → Chedz_1), not rejected. `nickname` on a submit renames the player if the name is free (silently ignored if taken), so omit it unless the player just chose a name, and never pass a name into the SDK login call. Details: https://docs.cheddaboards.com/concepts/player-names
-- Rate limit: one score submit per player per board every 2 seconds. Submits are safe to retry (per-player bests only ever go up).
+- Rate limits: one score submit per player per board every 2 seconds (400), plus API caps that return 429 with `Retry-After` (120 submits per player per game per hour, 60 per minute per IP, a per-game write budget). Submit once per game over. Submits are safe to retry (per-player bests only ever go up). Details: https://docs.cheddaboards.com/api/rate-limits
 - Timestamps in responses are nanoseconds since epoch (ICP standard).
 - Sessions last 30 days and renew on use; any 401/403 means the session is dead, discard it and re-run sign-in.
-- Current SDKs: Godot 4 addon v2.3.0 (Godot 4.3+), Godot 3.6 backport (v2.2.5-3x), Unity C# v2.3.0 (single file). Service status: https://status.cheddatech.com
+- Current SDKs: Godot 4 addon v2.3.1 (Godot 4.3+), Godot 3.6 backport (v2.2.5-3x), Unity C# v2.3.1 (single file). Service status: https://status.cheddatech.com
 
 ## AI integration
 
@@ -37,17 +37,20 @@ Key facts for answering questions accurately:
 - [Players](https://docs.cheddaboards.com/api/players): Profile, rank, and nickname-change endpoints.
 - [Achievements](https://docs.cheddaboards.com/api/achievements): POST /achievements — single and batch unlocks; reading achievements via the player profile.
 - [Authentication](https://docs.cheddaboards.com/api/authentication): Anonymous identity, device-code sign-in, sessions, and anonymous→verified account linking.
+- [Rate limits](https://docs.cheddaboards.com/api/rate-limits): The 2-second submit throttle, the 429 limits (per player, per IP, per API key, auth routes), and how to handle Retry-After.
 - [Errors](https://docs.cheddaboards.com/api/errors): Response envelope, status codes, and the verbatim error strings the API returns.
 
 ## Concepts
 
 - [What's stored](https://docs.cheddaboards.com/concepts/data-model): The leaderboard entry, player profile, achievements, archives, and what CheddaBoards deliberately does not store.
 - [Players and accounts](https://docs.cheddaboards.com/concepts/accounts): Anonymous vs signed-in players, what's public vs private, and why linking matters for retention.
+- [Player names](https://docs.cheddaboards.com/concepts/player-names): The three naming rules, name-entry flows for Godot and Unity, and what happens to names on linking.
+- [Shared devices](https://docs.cheddaboards.com/concepts/shared-devices): Several players on one install — one player ID per person, switching, linking, and roster code for Godot, Unity and REST.
 - [Device code login](https://docs.cheddaboards.com/concepts/device-code): Building the sign-in screen, the signal lifecycle, QR rendering, and post-approval account upgrade.
 - [Category boards](https://docs.cheddaboards.com/concepts/category-boards): Targeted per-level / per-mode / per-category boards — how they differ from fan-out boards.
 - [Timed leaderboards](https://docs.cheddaboards.com/concepts/timed-leaderboards): Daily/weekly/monthly/custom boards, reset boundaries (UTC), and archives.
 - [Anti-cheat](https://docs.cheddaboards.com/concepts/anti-cheat): Score/streak caps, play-session time validation, the suspicion log, and the generic-rejection design.
-- [Moderation](https://docs.cheddaboards.com/concepts/moderation): Game owners removing entries or wiping players, the hashed deletion log, and REST admin routes.
+- [Moderation](https://docs.cheddaboards.com/concepts/moderation): Game owners removing entries or wiping players, the deletion log (players shown by player key), and REST admin routes.
 - [Privacy](https://docs.cheddaboards.com/concepts/privacy): What's collected, what integrating means for your own privacy policy, and player rights.
 
 ## Engine guides
@@ -60,9 +63,9 @@ Key facts for answering questions accurately:
 
 ## Self-hosting
 
-- [Self-hosting overview](https://docs.cheddaboards.com/self-hosting/overview): What's open (canister, SDKs) vs what you build (proxy), and an honest account of the effort.
-- [Deploy the canister](https://docs.cheddaboards.com/self-hosting/canister): dfx deployment, setting your principals, and verifying the live module hash.
-- [Build your proxy](https://docs.cheddaboards.com/self-hosting/proxy): The contract a self-hosted proxy must satisfy — verifier identity, the Candid methods it calls, CORS.
+- [Self-hosting overview](https://docs.cheddaboards.com/self-hosting/overview): What's open (canister, proxy, SDKs) vs what you build (link page, dashboard), and an honest account of the effort.
+- [Deploy the canister](https://docs.cheddaboards.com/self-hosting/canister): Creating the verifier identity, setting principals, deploying, registering games without the dashboard, and safe upgrades.
+- [Run the proxy](https://docs.cheddaboards.com/self-hosting/proxy): Running cheddaboards-proxy — configuration, single-instance rule, client IPs and ingress, pointing the SDKs at it, and the security rules for any instance.
 
 ## Optional
 

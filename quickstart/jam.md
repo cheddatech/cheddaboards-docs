@@ -93,7 +93,7 @@ Generate `playerId` once per player (random, e.g. `dev_<unixtime>_<random>`), st
 
 ## Jam-shaped details
 
-**Rate limits won't bite you.** Submits are throttled at one per player per board every 2 seconds — a normal game-over loop never notices. If you're doing something weirder (per-kill submits, presence heartbeats — [it's been done](/concepts/category-boards)), targeted boards are throttled per board, so spreading writes is fine.
+**Rate limits won't bite you.** Submits are throttled at one per player per board every 2 seconds, and capped at 120 per player per hour — a normal game-over loop never notices. ([All limits](/api/rate-limits).) If you're doing something weirder (per-kill submits, presence heartbeats — [it's been done](/concepts/category-boards)), targeted boards are throttled per board, so spreading writes is fine.
 
 **Rating-day traffic is nothing to plan for.** A front-page itch spike needs nothing from you — no quotas to raise, no config to change, no bill at the end.
 

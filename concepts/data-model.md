@@ -77,7 +77,7 @@ A play session is a **short-lived server-side token** created for a single run, 
 
 Game owners can remove score entries from their own boards — a single entry on one board, or a player's entries across every board — from the dashboard. See [Moderation](/concepts/moderation).
 
-Each removal is recorded in a small, capped **deletion audit log**. Log entries identify the affected player only by a **one-way hash** — the raw user ID (email or principal) is never written to the log, so it can't leak identity.
+Each removal is recorded in a small, capped **deletion audit log**. Log entries identify the affected player only by a **player key**, a short numeric ID derived from the account. The raw user ID (email or principal) is never written to the log. The suspicion log uses the same keys.
 
 ## What CheddaBoards does *not* store
 

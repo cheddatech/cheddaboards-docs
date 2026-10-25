@@ -13,10 +13,12 @@ Check `ok` before reading `data`, and surface `error` when it's false.
 | Status | Meaning | What to do |
 |--------|---------|------------|
 | `200` | Success | Read `data` |
-| `400` | Bad request — invalid input, rate limit, or validation failure | Read the error message; see below |
+| `400` | Bad request: invalid input, validation failure, or the 2-second submit throttle | Read the error message; see below |
 | `401` / `403` | Session token is dead (expired, logged out, or account removed) | Discard the stored session and fall back to sign-in — see [Authentication](/api/authentication) |
 | `404` | Route or resource not found | For scoreboard lookups this is normal — the board just isn't configured |
 | `428` | Device-code auth still pending | Keep polling (every 5s) |
+| `429` | Rate limit reached | Wait for the `Retry-After` header (seconds), then continue. See [Rate limits](/api/rate-limits) |
+| `503` | Submits paused for this game, or too many pending device codes | Wait for `Retry-After` and try again |
 | `5xx` | Transient upstream problem | Retry with backoff — [submits are safe to retry](/quickstart/rest#notes). Persistent? Check [status.cheddatech.com](https://status.cheddatech.com) |
 
 ## Common errors
@@ -25,9 +27,9 @@ Check `ok` before reading `data`, and surface `error` when it's false.
 
 You submitted a score with a `scoreboardId` that doesn't exist on this game. Every game gets its standard time-based boards (all-time, weekly, daily) automatically — but **custom boards are never created by a submit**. Create the board first in the Developer Console (**Scoreboards** tab), and for targeted submits make sure its Board Type is **Targeted**. Retrying the same submit without creating the board will fail forever.
 
-### `This game requires starting a session before submitting.`
+### `This game has time validation on. Start a play session first…`
 
-The game has **time validation** enabled, which makes the play-session token required — a submit without a valid `playSessionToken` is rejected before any score checks run. Start a session when the run begins (`POST /play-sessions/start`), pass its token in the submit body, and end the session after submitting (`POST /play-sessions/end`). The SDKs attach the token for you but don't start sessions on their own — call `start_play_session()` / `StartPlaySession()` when the run begins. (The Godot template's game wrapper is the one place the whole lifecycle runs automatically.) If you're seeing this from an SDK integration, the session start didn't happen before the submit. (The `startGameSession` the message mentions is the backend's internal name — on REST the call is `/play-sessions/start`.) See [Anti-cheat](/concepts/anti-cheat).
+The game has **time validation** enabled, which makes the play-session token required — a submit without a valid `playSessionToken` is rejected before any score checks run. Start a session when the run begins (`POST /play-sessions/start`), pass its token in the submit body, and end the session after submitting (`POST /play-sessions/end`). The SDKs attach the token for you but don't start sessions on their own — call `start_play_session()` / `StartPlaySession()` when the run begins. (The Godot template's game wrapper is the one place the whole lifecycle runs automatically.) If you're seeing this from an SDK integration, the session start didn't happen before the submit. See [Anti-cheat](/concepts/anti-cheat).
 
 ### Submitting to a fan-out board by ID
 
@@ -55,7 +57,7 @@ Not an error — the player just hasn't approved the device-code sign-in yet. Ke
 
 ### Rate limited
 
-One submit per player per board every 2 seconds, enforced server-side — the error tells you to wait. Back-to-back submits to *different* boards are fine (the throttle is keyed per board). If you hit this in normal play, you're submitting more often than you need to.
+Two kinds. The **2-second throttle** (one submit per player per board every 2 seconds) comes back as a `400` telling you to wait; back-to-back submits to *different* boards are fine. Everything else, such as the hourly per-player submit cap, the per-IP cap and the API key budget, comes back as a **`429`** with a `Retry-After` header. Wait that long, never retry in a tight loop, and submit once per game over. All the limits are on [Rate limits](/api/rate-limits).
 
 ### Too many active play sessions
 

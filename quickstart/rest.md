@@ -334,7 +334,7 @@ Timed-scoreboard **archives** have their own endpoints under `/games/{gameId}/sc
 - Game and scoreboard IDs in URL paths must be 1–64 characters of letters, digits, `_` or `-`; anything else returns a `400` before reaching the backend.
 - A `404` on a scoreboard lookup is normal — it just means that scoreboard isn't configured for the game.
 - **Submits are safe to retry.** The backend keeps per-player bests, so resending a score after a timeout can never lower a score or streak — no client-side dedupe needed. Repeat submits within a few seconds also count as one play, so an immediate retry is fully safe; only well-spaced duplicates move the play count, so avoid long-running blind retry *loops* if play counts matter to you.
-- Rate limiting is enforced server-side: one submit per player per board every 2 seconds.
+- Rate limiting is enforced server-side: one submit per player per board every 2 seconds, plus hourly and per-IP caps that return `429` with `Retry-After`. See [Rate limits](/api/rate-limits).
 - Targeted boards are created in the Developer Console (**Board Type → Targeted**) before you submit to them. A submit never creates one — but every game's standard timed boards (all-time, weekly, daily) exist from registration.
 
 **See also:** [Godot drop-in quick start](/quickstart/godot) · [Authentication](/api/authentication) · [Anti-cheat](/concepts/anti-cheat) · [Community C library](https://github.com/charlie-makes-things/C_cheddaboards)

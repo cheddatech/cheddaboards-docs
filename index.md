@@ -34,9 +34,9 @@ features:
     link: /concepts/category-boards
   - title: One device, many players
     details: Arcade cabinets, couch play, classroom laptops. Give each person their own name and row on the board from a single install.
-    link: /concepts/player-names#shared-devices-several-players-one-install
+    link: /concepts/shared-devices
   - title: Yours to keep
-    details: The backend and SDKs are open source. Use the hosted service or run your own.
+    details: The backend, the API proxy and the SDKs are open source. Use the hosted service or run your own.
     link: /self-hosting/overview
   - title: Built with an AI assistant?
     details: Hand Claude, Cursor or Copilot the integration spec, or point it at llms.txt. Every endpoint, rule and error string on one page.

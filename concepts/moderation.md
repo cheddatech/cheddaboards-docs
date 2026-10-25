@@ -31,7 +31,7 @@ Removing a player's scores does **not** stop them submitting again. If someone i
 
 Every deletion is recorded: what was removed, which board, the scope, whether archives were purged, and when. The log is per-game, visible only to you, and keeps the most recent 2000 records.
 
-Player identifiers in the log are **one-way hashes** — emails and account details are never written to it, so the audit trail can't leak a player's identity. (This is the same privacy posture as the rest of the platform: only nicknames are ever public. See [What's stored](/concepts/data-model).)
+Players in the log appear as **player keys**, short numeric IDs derived from the account, never as emails or account details. (This is the same posture as the rest of the platform: only nicknames are ever public. See [What's stored](/concepts/data-model).) A player key is a convenient handle, not an anonymity guarantee: it's a short hash, so someone who already knows a player's account identifier can work out its key.
 
 ## Who can do this
 
@@ -48,7 +48,7 @@ The same operations are available over the HTTP API with your dashboard session:
 | `DELETE` | `/games/{gameId}/players/{playerKey}/scores` | Wipe a player from all boards |
 | `GET` | `/games/{gameId}/deletion-log` | Fetch the deletion log |
 
-Add `?archives=true` to the DELETE routes to purge archives as well. The `playerKey` values come from the admin view route — they're stable per player per game, and are the hashed keys, never raw account identifiers.
+Add `?archives=true` to the DELETE routes to purge archives as well. The `playerKey` values come from the admin view route — they're stable per player, and never contain raw account identifiers.
 
 ## FAQ
 

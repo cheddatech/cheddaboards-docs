@@ -2,7 +2,7 @@
 
 How nicknames work, the three rules that keep them from going wrong, and copy-paste name-entry flows for Godot and Unity.
 
-Applies to the Godot 4 addon **2.2.7+** and the Unity SDK **2.3.0+** (the shared-device section needs **2.3.1**). Older versions had a bug where a submit could overwrite a saved name with a generated one; if names are "changing on their own", update the SDK first. The Godot 3.6 backport (2.2.5-3x) still has that bug: on 3.6, call `refresh_profile()` after login and wait for `profile_loaded` or `no_profile` before the first submit (see the [3.6 guide](/engines/godot-3#known-differences-from-2-2-7)). Everything else on this page applies to 3.6 as written.
+Applies to the Godot 4 addon **2.2.7+** and the Unity SDK **2.3.0+**. Older versions had a bug where a submit could overwrite a saved name with a generated one; if names are "changing on their own", update the SDK first. The Godot 3.6 backport (2.2.5-3x) still has that bug: on 3.6, call `refresh_profile()` after login and wait for `profile_loaded` or `no_profile` before the first submit (see the [3.6 guide](/engines/godot-3#known-differences-from-2-2-7)). Everything else on this page applies to 3.6 as written.
 
 ## The one thing to understand
 
@@ -210,134 +210,9 @@ When a player links via the device-code flow, their anonymous progress merges in
 
 So after `device_code_approved` / `OnDeviceCodeApproved` and `account_upgraded` / `OnAccountUpgraded`, read `get_nickname()` again and redraw. Don't push your old local name back with `change_nickname()`; you'd be renaming them across all their games.
 
-## Shared devices: several players, one install
+## Shared devices
 
-Arcade cabinets, couch play, a classroom laptop, a demo machine at an event. Several people take turns on one install and each wants their own name and their own row on the board.
-
-The answer is **not** to send a nickname with every score. The nickname is just a label on a profile; what makes someone a separate player is their **player ID**. On a normal install the SDK generates one `dev_…` ID per device and reuses it, so one device is one player. Sending a different nickname each time would rename that single profile back and forth, and everyone would share one row that only ever moves up.
-
-Instead, keep a small roster in the game: one player ID per person, generated once and saved locally, and make the chosen person's ID the active one before they play. Each ID is a separate profile with its own name, bests and board rows, exactly as if they were on separate devices.
-
-Four steps for switching (SDK **2.3.1+**, where `set_player_id()` resets the previous person's cached profile, name, pending rename and play session when the ID changes):
-
-1. **Call `logout()` / `Logout()`** first. `set_player_id()` does not drop a signed-in session or a link code that is still waiting for approval; `logout()` does. If nobody on the device ever links an account this is a no-op, so always call it. It emits `logout_success` / `OnLogoutSuccess`: if your game sends that signal to a login screen, ignore it during a switch.
-2. **Set the ID**, then **`login_anonymous()` / `LoginAnonymous()`** with no name.
-3. **Fetch the profile with `get_player_profile()` / `GetPlayerProfile()`**, not `refresh_profile()`: the refresh helper has a 2-second cooldown and silently does nothing inside it, which a quick switch can hit.
-4. **Start a new play session** when the new person's run begins. Sessions are per player.
-
-The SDKs don't persist a `set_player_id()` override, so re-apply it from your roster on startup too.
-
-::: warning On 2.3.0
-2.3.0 did not fully reset the previous person's state on a switch, so a new person's `change_nickname()` before their first score was sent to the server and lost. Update to 2.3.1. If you must stay on 2.3.0, follow the same four steps, but give a new person their name at creation with `login_anonymous(name)` instead of `change_nickname()`.
-:::
-
-Name entry per person is the normal flow from above: offer the box when `get_nickname()` is `""` after the profile is known, rename through the SDK, never pass names into login.
-
-### Linking on a shared device
-
-Linking uses up the slot. When someone links, their anonymous profile is merged into their account and its `dev_…` ID stops existing on the server. Selecting that slot again would start a brand-new empty player under the old ID, so remove the slot from your roster when `account_upgraded` / `OnAccountUpgraded` fires. The person's scores are safe on their account, and they stay signed in until the next switch; to play as that account on this device again later, they link again.
-
-A signed-in session belongs to one person, which is why every switch starts with `logout()`. Without it the next person's scores and renames go to the linked account, whatever player ID is set.
-
-If that's more than your game needs, the simple option is to not offer linking on shared installs at all.
-
-### Roster: Godot 4
-
-```gdscript
-# Roster.gd (autoload). One dev_ ID per local player, saved in user://.
-extends Node
-
-const PATH := "user://roster.cfg"
-var players: Array = []       # [{ "id": "dev_...", "label": "Player 1" }, ...]
-var active := -1
-
-func _ready() -> void:
-	var cfg := ConfigFile.new()
-	if cfg.load(PATH) == OK:
-		players = cfg.get_value("roster", "players", [])
-		active = cfg.get_value("roster", "active", -1)
-
-func add_player(label: String) -> int:
-	# Same shape the SDK uses for its own device ID.
-	var ts := str(Time.get_unix_time_from_system()).replace(".", "")
-	var id := "dev_%s_%08x" % [ts, randi() & 0x7FFFFFFF]
-	players.append({ "id": id, "label": label })
-	_save()
-	return players.size() - 1
-
-func select(index: int) -> void:
-	active = index
-	_save()
-	CheddaBoards.logout()                 # drops a signed-in session or pending link code from the previous person
-	CheddaBoards.set_player_id(players[index]["id"])   # 2.3.1+: resets the previous person's state
-	CheddaBoards.login_anonymous()        # no name
-	CheddaBoards.get_player_profile()     # no cooldown; profile_loaded / no_profile then drives name entry
-
-func _save() -> void:
-	var cfg := ConfigFile.new()
-	cfg.set_value("roster", "players", players)
-	cfg.set_value("roster", "active", active)
-	cfg.save(PATH)
-```
-
-On startup: if `active >= 0`, call `Roster.select(active)` before anything else touches CheddaBoards. When a run starts for the selected person, `start_play_session()` as usual.
-
-### Roster: Unity
-
-```csharp
-using System.Collections.Generic;
-using UnityEngine;
-using CheddaTech;
-
-// One dev_ ID per local player, saved in PlayerPrefs.
-public static class Roster
-{
-    [System.Serializable] class Entry { public string id; public string label; }
-    [System.Serializable] class Store { public List<Entry> players = new List<Entry>(); public int active = -1; }
-
-    const string KEY = "cb_roster";
-    static Store store;
-
-    static void Load()
-    {
-        if (store != null) return;
-        store = PlayerPrefs.HasKey(KEY) ? JsonUtility.FromJson<Store>(PlayerPrefs.GetString(KEY)) : new Store();
-    }
-
-    static void Save() { PlayerPrefs.SetString(KEY, JsonUtility.ToJson(store)); PlayerPrefs.Save(); }
-
-    public static int Add(string label)
-    {
-        Load();
-        // Same shape the SDK uses for its own device ID.
-        string id = $"dev_{System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}_{Random.Range(0, int.MaxValue):x8}";
-        store.players.Add(new Entry { id = id, label = label });
-        Save();
-        return store.players.Count - 1;
-    }
-
-    public static void Select(int index)
-    {
-        Load();
-        store.active = index;
-        Save();
-        var cb = CheddaBoards.Instance;
-        cb.Logout();             // drops a signed-in session or pending link code from the previous person
-        cb.SetPlayerId(store.players[index].id);   // 2.3.1+: resets the previous person's state
-        cb.LoginAnonymous();     // no name
-        cb.GetPlayerProfile();   // no cooldown; OnProfileLoaded / OnNoProfile then drives name entry
-    }
-
-    public static int Active { get { Load(); return store.active; } }
-    public static IReadOnlyList<string> Labels { get { Load(); return store.players.ConvertAll(p => p.label); } }
-}
-```
-
-On startup: if `Roster.Active >= 0`, call `Roster.Select(Roster.Active)` before anything else touches CheddaBoards. Start a play session per run as usual.
-
-### REST
-
-Nothing special: `playerId` on every request is whatever you send. Generate one `dev_<unixtime>_<random>` per person, store them, and send the selected one. Include `nickname` only on that person's first submit (or use the rename endpoint); see [Players](/api/players#change-a-nickname).
+Several players taking turns on one install (an arcade cabinet, couch play, a classroom laptop) need one player ID each, not a different nickname per submit. That has its own guide: [Shared devices](/concepts/shared-devices).
 
 ## Things that cause confusion
 
@@ -352,9 +227,7 @@ Nothing special: `playerId` on every request is whatever you send. Generate one 
 | Name chosen right after launch is gone a moment later | The name was set while the profile fetch was still in flight; when the profile landed it overwrote the local name | Don't offer the name box until `profile_loaded` or `no_profile` has fired (the flows above do this) |
 | After signing in, the name changed to something else | Player linked an existing account; the account's name wins | Expected. Redraw from `get_nickname()` after `account_upgraded` |
 | New player shows `""` / blank | Profile hasn't loaded yet, or they haven't picked a name | Show "Guest" |
-| Several people share one device and keep overwriting each other | One device ID, so they are one profile; sending names per submit just renames it | One player ID per person, switched before they play; see [Shared devices](#shared-devices-several-players-one-install) |
-| On a shared device, the next person shows up with the previous person's name, or their scores land on someone else's row | The previous person linked an account and the switch didn't call `logout()`, so their session is still active | Call `logout()` before `set_player_id()` on every switch; see [Linking on a shared device](#linking-on-a-shared-device) |
-| On a shared device, a linked person's slot comes back empty | Linking merged that slot into their account; the old ID no longer exists | Remove the slot on `account_upgraded`; they link again to play as their account |
+| Several people share one device and keep overwriting each other | One device ID, so they are one profile; sending names per submit just renames it | One player ID per person, switched before they play; see [Shared devices](/concepts/shared-devices) |
 
 ## Reference
 

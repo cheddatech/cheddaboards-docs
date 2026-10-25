@@ -12,10 +12,10 @@ Key facts for answering questions accurately:
 - If a game has time validation on, `POST /scores` requires a `playSessionToken` from `POST /play-sessions/start`. The SDKs attach the token but do not start sessions for you.
 - Board reads are also served directly from the canister at https://fdvph-sqaaa-aaaap-qqc4a-cai.raw.icp0.io (keyless, CORS-open, same paths and JSON).
 - Nicknames are 3–16 characters, letters/digits/underscores; on the nickname-change endpoints a taken name is auto-suffixed (e.g. Chedz → Chedz_1), not rejected. `nickname` on a submit renames the player if the name is free (silently ignored if taken), so omit it unless the player just chose a name, and never pass a name into the SDK login call. Details: https://docs.cheddaboards.com/concepts/player-names
-- Rate limit: one score submit per player per board every 2 seconds. Submits are safe to retry (per-player bests only ever go up).
+- Rate limits: one score submit per player per board every 2 seconds (400), plus API caps that return 429 with `Retry-After` (120 submits per player per game per hour, 60 per minute per IP, a per-game write budget). Submit once per game over. Submits are safe to retry (per-player bests only ever go up). Details: https://docs.cheddaboards.com/api/rate-limits
 - Timestamps in responses are nanoseconds since epoch (ICP standard).
 - Sessions last 30 days and renew on use; any 401/403 means the session is dead, discard it and re-run sign-in.
-- Current SDKs: Godot 4 addon v2.3.0 (Godot 4.3+), Godot 3.6 backport (v2.2.5-3x), Unity C# v2.3.0 (single file). Service status: https://status.cheddatech.com
+- Current SDKs: Godot 4 addon v2.3.1 (Godot 4.3+), Godot 3.6 backport (v2.2.5-3x), Unity C# v2.3.1 (single file). Service status: https://status.cheddatech.com
 
 ## AI integration
 
@@ -37,17 +37,20 @@ Key facts for answering questions accurately:
 - [Players](https://docs.cheddaboards.com/api/players): Profile, rank, and nickname-change endpoints.
 - [Achievements](https://docs.cheddaboards.com/api/achievements): POST /achievements — single and batch unlocks; reading achievements via the player profile.
 - [Authentication](https://docs.cheddaboards.com/api/authentication): Anonymous identity, device-code sign-in, sessions, and anonymous→verified account linking.
+- [Rate limits](https://docs.cheddaboards.com/api/rate-limits): The 2-second submit throttle, the 429 limits (per player, per IP, per API key, auth routes), and how to handle Retry-After.
 - [Errors](https://docs.cheddaboards.com/api/errors): Response envelope, status codes, and the verbatim error strings the API returns.
 
 ## Concepts
 
 - [What's stored](https://docs.cheddaboards.com/concepts/data-model): The leaderboard entry, player profile, achievements, archives, and what CheddaBoards deliberately does not store.
 - [Players and accounts](https://docs.cheddaboards.com/concepts/accounts): Anonymous vs signed-in players, what's public vs private, and why linking matters for retention.
+- [Player names](https://docs.cheddaboards.com/concepts/player-names): The three naming rules, name-entry flows for Godot and Unity, and what happens to names on linking.
+- [Shared devices](https://docs.cheddaboards.com/concepts/shared-devices): Several players on one install — one player ID per person, switching, linking, and roster code for Godot, Unity and REST.
 - [Device code login](https://docs.cheddaboards.com/concepts/device-code): Building the sign-in screen, the signal lifecycle, QR rendering, and post-approval account upgrade.
 - [Category boards](https://docs.cheddaboards.com/concepts/category-boards): Targeted per-level / per-mode / per-category boards — how they differ from fan-out boards.
 - [Timed leaderboards](https://docs.cheddaboards.com/concepts/timed-leaderboards): Daily/weekly/monthly/custom boards, reset boundaries (UTC), and archives.
 - [Anti-cheat](https://docs.cheddaboards.com/concepts/anti-cheat): Score/streak caps, play-session time validation, the suspicion log, and the generic-rejection design.
-- [Moderation](https://docs.cheddaboards.com/concepts/moderation): Game owners removing entries or wiping players, the hashed deletion log, and REST admin routes.
+- [Moderation](https://docs.cheddaboards.com/concepts/moderation): Game owners removing entries or wiping players, the deletion log (players shown by player key), and REST admin routes.
 - [Privacy](https://docs.cheddaboards.com/concepts/privacy): What's collected, what integrating means for your own privacy policy, and player rights.
 
 ## Engine guides
@@ -60,9 +63,9 @@ Key facts for answering questions accurately:
 
 ## Self-hosting
 
-- [Self-hosting overview](https://docs.cheddaboards.com/self-hosting/overview): What's open (canister, SDKs) vs what you build (proxy), and an honest account of the effort.
-- [Deploy the canister](https://docs.cheddaboards.com/self-hosting/canister): dfx deployment, setting your principals, and verifying the live module hash.
-- [Build your proxy](https://docs.cheddaboards.com/self-hosting/proxy): The contract a self-hosted proxy must satisfy — verifier identity, the Candid methods it calls, CORS.
+- [Self-hosting overview](https://docs.cheddaboards.com/self-hosting/overview): What's open (canister, proxy, SDKs) vs what you build (link page, dashboard), and an honest account of the effort.
+- [Deploy the canister](https://docs.cheddaboards.com/self-hosting/canister): Creating the verifier identity, setting principals, deploying, registering games without the dashboard, and safe upgrades.
+- [Run the proxy](https://docs.cheddaboards.com/self-hosting/proxy): Running cheddaboards-proxy — configuration, single-instance rule, client IPs and ingress, pointing the SDKs at it, and the security rules for any instance.
 
 ## Optional
 
@@ -224,13 +227,14 @@ Sessions last 30 days and renew on use. Any `401` or `403` on a session request 
 
 ## 10. Rate limits and retries
 
-- One score submit per player **per board** every 2 seconds. Always on, not configurable. Back-to-back submits to different boards are fine.
+- One score submit per player **per board** every 2 seconds. Always on, not configurable. Back-to-back submits to different boards are fine. Rejected with `400`.
+- API limits return `429` with a `Retry-After` header (seconds): 120 submits per player per game per hour, 60 submits per minute per IP, and a per-game API key budget on writes. Wait `Retry-After`, never retry in a tight loop, and submit once per game over, not per event. Full list: https://docs.cheddaboards.com/api/rate-limits
 - Submits are safe to retry after a timeout: bests only ever go up, and repeat submits within a few seconds count as one play.
 - Board reads are edge-cached for ~30 seconds. Do not poll faster than that; refresh after the player's own submit instead.
 
 ## 11. Error strings you should match on
 
-All errors arrive as `{"ok":false,"error":"..."}`. Status codes: 400 input/validation/rate-limit, 401/403 dead session, 404 route or board not found, 428 device code pending, 5xx transient (retry with backoff).
+All errors arrive as `{"ok":false,"error":"..."}`. Status codes: 400 input/validation/2-second throttle, 401/403 dead session, 404 route or board not found, 428 device code pending, 429 rate limited (honour `Retry-After`), 503 submits paused or device-code pool full (honour `Retry-After`), other 5xx transient (retry with backoff).
 
 | Error (substring is enough) | Cause | Correct handling |
 |---|---|---|
@@ -630,7 +634,7 @@ Timed-scoreboard **archives** have their own endpoints under `/games/{gameId}/sc
 - Game and scoreboard IDs in URL paths must be 1–64 characters of letters, digits, `_` or `-`; anything else returns a `400` before reaching the backend.
 - A `404` on a scoreboard lookup is normal — it just means that scoreboard isn't configured for the game.
 - **Submits are safe to retry.** The backend keeps per-player bests, so resending a score after a timeout can never lower a score or streak — no client-side dedupe needed. Repeat submits within a few seconds also count as one play, so an immediate retry is fully safe; only well-spaced duplicates move the play count, so avoid long-running blind retry *loops* if play counts matter to you.
-- Rate limiting is enforced server-side: one submit per player per board every 2 seconds.
+- Rate limiting is enforced server-side: one submit per player per board every 2 seconds, plus hourly and per-IP caps that return `429` with `Retry-After`. See [Rate limits](https://docs.cheddaboards.com/api/rate-limits).
 - Targeted boards are created in the Developer Console (**Board Type → Targeted**) before you submit to them. A submit never creates one — but every game's standard timed boards (all-time, weekly, daily) exist from registration.
 
 **See also:** [Godot drop-in quick start](https://docs.cheddaboards.com/quickstart/godot) · [Authentication](https://docs.cheddaboards.com/api/authentication) · [Anti-cheat](https://docs.cheddaboards.com/concepts/anti-cheat) · [Community C library](https://github.com/charlie-makes-things/C_cheddaboards)
@@ -1256,7 +1260,7 @@ Generate `playerId` once per player (random, e.g. `dev_<unixtime>_<random>`), st
 
 ## Jam-shaped details
 
-**Rate limits won't bite you.** Submits are throttled at one per player per board every 2 seconds — a normal game-over loop never notices. If you're doing something weirder (per-kill submits, presence heartbeats — [it's been done](https://docs.cheddaboards.com/concepts/category-boards)), targeted boards are throttled per board, so spreading writes is fine.
+**Rate limits won't bite you.** Submits are throttled at one per player per board every 2 seconds, and capped at 120 per player per hour — a normal game-over loop never notices. ([All limits](https://docs.cheddaboards.com/api/rate-limits).) If you're doing something weirder (per-kill submits, presence heartbeats — [it's been done](https://docs.cheddaboards.com/concepts/category-boards)), targeted boards are throttled per board, so spreading writes is fine.
 
 **Rating-day traffic is nothing to plan for.** A front-page itch spike needs nothing from you — no quotas to raise, no config to change, no bill at the end.
 
@@ -1341,7 +1345,7 @@ Always check `ok` before reading `data`. Status codes and error strings are in [
 - All request and response bodies are JSON.
 - Game and scoreboard IDs in URL paths must be 1–64 characters of letters, digits, `_` or `-`; anything else is rejected with a `400` before reaching the backend.
 - Timestamps in responses are **nanoseconds** since epoch (ICP-standard) — divide by 1,000,000 for JavaScript milliseconds.
-- Rate limit: one score submit per player per board every 2 seconds.
+- Rate limits: one score submit per player per board every 2 seconds, plus hourly and per-IP caps that return `429`. See [Rate limits](https://docs.cheddaboards.com/api/rate-limits).
 
 **See also:** [REST quick start](https://docs.cheddaboards.com/quickstart/rest) · [Scores](https://docs.cheddaboards.com/api/scores) · [Authentication](https://docs.cheddaboards.com/api/authentication) · [Errors](https://docs.cheddaboards.com/api/errors)
 
@@ -1554,6 +1558,8 @@ A score that trips a cap or time check is rejected with a generic `"rejected by 
 ## Rate limit
 
 **One submit per player per board every 2 seconds**, enforced server-side. It's always on and not configurable — it only blocks bot-speed submission, never legitimate play. Because it's keyed per board, back-to-back submits to *different* boards don't trip it.
+
+On top of that, the API caps each player at 120 submits per game per hour and each IP at 60 submits a minute, returning `429` with `Retry-After`. Submit once per game over and you'll never see them. See [Rate limits](https://docs.cheddaboards.com/api/rate-limits).
 
 ## Retry safety
 
@@ -1874,6 +1880,69 @@ The official SDKs do the batching for you: `submit_score_with_achievements` / `S
 
 ---
 
+<!-- https://docs.cheddaboards.com/api/rate-limits -->
+
+# Rate limits
+
+A normal game never hits these. They exist to stop runaway loops, bots and spam, and they're set well above what a game-over loop, a level-select screen or an achievement burst needs.
+
+There are two layers:
+
+- **The canister throttle**: one score submit per player per board every 2 seconds. Rejected with `400` and a message telling you to wait.
+- **API limits**: everything below. Rejected with `429 Too Many Requests` and a `Retry-After` header, in seconds.
+
+## Score submits
+
+| Limit | Applies to | Over the limit |
+|---|---|---|
+| 1 submit per player per board every 2 s | Every submit | `400`, wait and resend |
+| 120 submits per player per game per hour | API-key and signed-in submits | `429` "Too many score submissions for this player. Submit once per game over." |
+| 60 submits per minute per client IP | All games combined | `429` "Too many score submissions from this address" |
+
+The 2-second throttle is keyed per board, so a run that submits to a level board and a shared `runs` board back to back is fine. The hourly cap is the one a forgotten debug build (a submit on every tap or every frame) will hit first.
+
+## API key budget
+
+Each game's API key has a request budget. Only requests that write count against it: `POST /scores`, `POST /achievements` and `PUT /players/{id}/nickname`. Reads, play-session calls and `/health` are free.
+
+| Tier | Per minute | Per hour |
+|---|---|---|
+| Free (every hosted key today) | 100 | 5,000 |
+
+Over the budget you get a `429` with `Retry-After`. Since the budget is per game, not per player, this is the one a very popular game could reach at peak. If you're getting close, get in touch through the dashboard.
+
+## Other calls
+
+| Call | Limit | Scope |
+|---|---|---|
+| `POST /achievements` | 120 calls per hour, up to 100 IDs per call | Per player per game |
+| `POST /play-sessions/start` and `/end` (signed-in) | 240 calls per hour | Per signed-in session |
+| `POST /auth/google`, `POST /auth/apple` | 30 per hour per IP, and 20 per hour per Google/Apple account | Per IP and per account |
+| `POST /auth/device/code` | 30 codes per hour | Per client IP |
+| `GET /auth/device/status/:code` | 60 per minute | Per client IP |
+| `POST /auth/device/approve` | 30 per hour per IP, and 20 per hour per Google/Apple account | Per IP and per account |
+| Board reads | Up to 1,000 entries per request, edge-cached for about 30 s | Per request |
+| Request body | 64 KB | Per request |
+
+Batch achievements: one call with `achievementIds` instead of one call per unlock. The SDKs do this for you.
+
+## Not rate limits, but similar
+
+- **`503` "Score submissions for this game are temporarily paused"**: the game's submits are paused during an incident. `Retry-After` is 300 seconds.
+- **`503` "Too many pending device authorizations"**: too many unapproved device codes are outstanding platform-wide. Wait a moment and request a new code.
+- **"Too many active sessions"** on a play-session start: the player already has 3 play sessions open. End sessions when runs finish (`POST /play-sessions/end`).
+
+## Handling a 429
+
+- **Respect `Retry-After`.** Wait at least that long before the next request of that kind.
+- **Never retry in a tight loop.** A loop that retries immediately on failure turns one rejected request into thousands, and keeps the limit tripped.
+- **Submit once per game over**, not per kill, per tap or per frame. For live in-run progress, keep it local and submit at the end; for presence or heartbeat-style data, use a [targeted board](https://docs.cheddaboards.com/concepts/category-boards) at a modest interval.
+- **Don't treat a 429 as a sign-out.** Only `401`/`403` mean the session is dead.
+
+Self-hosting? Every limit here is an environment variable on the proxy, with these values as defaults. See the [proxy README](https://github.com/cheddatech/cheddaboards-proxy#environment-variables).
+
+---
+
 <!-- https://docs.cheddaboards.com/api/errors -->
 
 # Errors
@@ -1891,10 +1960,12 @@ Check `ok` before reading `data`, and surface `error` when it's false.
 | Status | Meaning | What to do |
 |--------|---------|------------|
 | `200` | Success | Read `data` |
-| `400` | Bad request — invalid input, rate limit, or validation failure | Read the error message; see below |
+| `400` | Bad request: invalid input, validation failure, or the 2-second submit throttle | Read the error message; see below |
 | `401` / `403` | Session token is dead (expired, logged out, or account removed) | Discard the stored session and fall back to sign-in — see [Authentication](https://docs.cheddaboards.com/api/authentication) |
 | `404` | Route or resource not found | For scoreboard lookups this is normal — the board just isn't configured |
 | `428` | Device-code auth still pending | Keep polling (every 5s) |
+| `429` | Rate limit reached | Wait for the `Retry-After` header (seconds), then continue. See [Rate limits](https://docs.cheddaboards.com/api/rate-limits) |
+| `503` | Submits paused for this game, or too many pending device codes | Wait for `Retry-After` and try again |
 | `5xx` | Transient upstream problem | Retry with backoff — [submits are safe to retry](https://docs.cheddaboards.com/quickstart/rest#notes). Persistent? Check [status.cheddatech.com](https://status.cheddatech.com) |
 
 ## Common errors
@@ -1903,9 +1974,9 @@ Check `ok` before reading `data`, and surface `error` when it's false.
 
 You submitted a score with a `scoreboardId` that doesn't exist on this game. Every game gets its standard time-based boards (all-time, weekly, daily) automatically — but **custom boards are never created by a submit**. Create the board first in the Developer Console (**Scoreboards** tab), and for targeted submits make sure its Board Type is **Targeted**. Retrying the same submit without creating the board will fail forever.
 
-### `This game requires starting a session before submitting.`
+### `This game has time validation on. Start a play session first…`
 
-The game has **time validation** enabled, which makes the play-session token required — a submit without a valid `playSessionToken` is rejected before any score checks run. Start a session when the run begins (`POST /play-sessions/start`), pass its token in the submit body, and end the session after submitting (`POST /play-sessions/end`). The SDKs attach the token for you but don't start sessions on their own — call `start_play_session()` / `StartPlaySession()` when the run begins. (The Godot template's game wrapper is the one place the whole lifecycle runs automatically.) If you're seeing this from an SDK integration, the session start didn't happen before the submit. (The `startGameSession` the message mentions is the backend's internal name — on REST the call is `/play-sessions/start`.) See [Anti-cheat](https://docs.cheddaboards.com/concepts/anti-cheat).
+The game has **time validation** enabled, which makes the play-session token required — a submit without a valid `playSessionToken` is rejected before any score checks run. Start a session when the run begins (`POST /play-sessions/start`), pass its token in the submit body, and end the session after submitting (`POST /play-sessions/end`). The SDKs attach the token for you but don't start sessions on their own — call `start_play_session()` / `StartPlaySession()` when the run begins. (The Godot template's game wrapper is the one place the whole lifecycle runs automatically.) If you're seeing this from an SDK integration, the session start didn't happen before the submit. See [Anti-cheat](https://docs.cheddaboards.com/concepts/anti-cheat).
 
 ### Submitting to a fan-out board by ID
 
@@ -1933,7 +2004,7 @@ Not an error — the player just hasn't approved the device-code sign-in yet. Ke
 
 ### Rate limited
 
-One submit per player per board every 2 seconds, enforced server-side — the error tells you to wait. Back-to-back submits to *different* boards are fine (the throttle is keyed per board). If you hit this in normal play, you're submitting more often than you need to.
+Two kinds. The **2-second throttle** (one submit per player per board every 2 seconds) comes back as a `400` telling you to wait; back-to-back submits to *different* boards are fine. Everything else, such as the hourly per-player submit cap, the per-IP cap and the API key budget, comes back as a **`429`** with a `Retry-After` header. Wait that long, never retry in a tight loop, and submit once per game over. All the limits are on [Rate limits](https://docs.cheddaboards.com/api/rate-limits).
 
 ### Too many active play sessions
 
@@ -2671,7 +2742,7 @@ A play session is a **short-lived server-side token** created for a single run, 
 
 Game owners can remove score entries from their own boards — a single entry on one board, or a player's entries across every board — from the dashboard. See [Moderation](https://docs.cheddaboards.com/concepts/moderation).
 
-Each removal is recorded in a small, capped **deletion audit log**. Log entries identify the affected player only by a **one-way hash** — the raw user ID (email or principal) is never written to the log, so it can't leak identity.
+Each removal is recorded in a small, capped **deletion audit log**. Log entries identify the affected player only by a **player key**, a short numeric ID derived from the account. The raw user ID (email or principal) is never written to the log. The suspicion log uses the same keys.
 
 ## What CheddaBoards does *not* store
 
@@ -2744,7 +2815,7 @@ You don't have to push it. Anonymous-only is a perfectly good mode, and many pla
 
 How nicknames work, the three rules that keep them from going wrong, and copy-paste name-entry flows for Godot and Unity.
 
-Applies to the Godot 4 addon **2.2.7+** and the Unity SDK **2.3.0+** (the shared-device section needs **2.3.1**). Older versions had a bug where a submit could overwrite a saved name with a generated one; if names are "changing on their own", update the SDK first. The Godot 3.6 backport (2.2.5-3x) still has that bug: on 3.6, call `refresh_profile()` after login and wait for `profile_loaded` or `no_profile` before the first submit (see the [3.6 guide](https://docs.cheddaboards.com/engines/godot-3#known-differences-from-2-2-7)). Everything else on this page applies to 3.6 as written.
+Applies to the Godot 4 addon **2.2.7+** and the Unity SDK **2.3.0+**. Older versions had a bug where a submit could overwrite a saved name with a generated one; if names are "changing on their own", update the SDK first. The Godot 3.6 backport (2.2.5-3x) still has that bug: on 3.6, call `refresh_profile()` after login and wait for `profile_loaded` or `no_profile` before the first submit (see the [3.6 guide](https://docs.cheddaboards.com/engines/godot-3#known-differences-from-2-2-7)). Everything else on this page applies to 3.6 as written.
 
 ## The one thing to understand
 
@@ -2952,27 +3023,77 @@ When a player links via the device-code flow, their anonymous progress merges in
 
 So after `device_code_approved` / `OnDeviceCodeApproved` and `account_upgraded` / `OnAccountUpgraded`, read `get_nickname()` again and redraw. Don't push your old local name back with `change_nickname()`; you'd be renaming them across all their games.
 
-## Shared devices: several players, one install
+## Shared devices
 
-Arcade cabinets, couch play, a classroom laptop, a demo machine at an event. Several people take turns on one install and each wants their own name and their own row on the board.
+Several players taking turns on one install (an arcade cabinet, couch play, a classroom laptop) need one player ID each, not a different nickname per submit. That has its own guide: [Shared devices](https://docs.cheddaboards.com/concepts/shared-devices).
+
+## Things that cause confusion
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| Returning player's name reverts to `Player_1248` | A name is passed into `login_anonymous()` / `LoginAnonymous()` on every launch, or the SDK is older than 2.2.7 | Log in with no name; update the SDK |
+| Leaderboard shows the same player under several names | Game generates or stores its own name and passes it at login | Same as above; the server is the source of truth, not your save file |
+| `change_nickname` keeps failing with the same message | The value is invalid or taken-and-unsuffixable; rejections are permanent per value | Show the reason, let the player type a different one, never auto-retry |
+| Existing player typed `Alex`, UI shows `Alex` but board shows `Alex_1` | `Alex` was taken; the rename was suffixed | Redraw name displays from `get_nickname()` on every `profile_loaded` |
+| New player typed `Alex`, board shows `Player_1248` | `Alex` was taken when their first score created the profile | Refresh the profile once after the first score; the SDK re-sends the rename and `nickname_changed` fires with `Alex_1`. On raw REST, call the rename endpoint yourself |
+| Passed a name at login, nothing changed | The name was already taken, so the submit kept the old one; no error is raised on this path | Don't pass names at login; use `change_nickname()`, which reports the outcome |
+| Name chosen right after launch is gone a moment later | The name was set while the profile fetch was still in flight; when the profile landed it overwrote the local name | Don't offer the name box until `profile_loaded` or `no_profile` has fired (the flows above do this) |
+| After signing in, the name changed to something else | Player linked an existing account; the account's name wins | Expected. Redraw from `get_nickname()` after `account_upgraded` |
+| New player shows `""` / blank | Profile hasn't loaded yet, or they haven't picked a name | Show "Guest" |
+| Several people share one device and keep overwriting each other | One device ID, so they are one profile; sending names per submit just renames it | One player ID per person, switched before they play; see [Shared devices](https://docs.cheddaboards.com/concepts/shared-devices) |
+
+## Reference
+
+| | Godot | Unity |
+|---|---|---|
+| Log in (no name) | `login_anonymous()` | `LoginAnonymous()` |
+| Current name (`""` = unnamed) | `get_nickname()` | `GetNickname()` |
+| Rename | `change_nickname(name)` | `ChangeNickname(name)` |
+| Accepted | `nickname_changed(name)` | `OnNicknameChanged(name)` |
+| Rejected (permanent per value) | `nickname_error(reason)` | `OnNicknameError(reason)` |
+| Profile known | `profile_loaded(...)` / `no_profile()` | `OnProfileLoaded(...)` / `OnNoProfile` |
+
+Name rule: 3 to 16 characters, `A-Z a-z 0-9 _`. Renames to a taken name are suffixed (`Alex_1`). Players who never pick a name, or whose chosen name is taken at the moment their first score creates the profile, get `Player_N`. A name chosen before the first submit is held locally and sent with that submit. Changing a name changes it on every board and in every game the player has played.
+
+---
+
+<!-- https://docs.cheddaboards.com/concepts/shared-devices -->
+
+# Shared devices (player rosters)
+
+Several players on one install: arcade cabinets, couch play, a classroom laptop, a demo machine at an event. This page is how to give each person their own name and their own row on the board.
+
+Needs the Godot 4 addon or Unity SDK **2.3.1+**. It builds on [Player names](https://docs.cheddaboards.com/concepts/player-names), so read that first.
+
+## The idea
 
 The answer is **not** to send a nickname with every score. The nickname is just a label on a profile; what makes someone a separate player is their **player ID**. On a normal install the SDK generates one `dev_…` ID per device and reuses it, so one device is one player. Sending a different nickname each time would rename that single profile back and forth, and everyone would share one row that only ever moves up.
 
-Instead, keep a small roster in the game: one player ID per person, generated once and saved locally, and make the chosen person's ID the active one before they play. Each ID is a separate profile with its own name, bests and board rows, exactly as if they were on separate devices. Linking still works per person: whoever links merges their own slot into their account.
+Instead, keep a small roster in the game: one player ID per person, generated once and saved locally, and make the chosen person's ID the active one before they play. Each ID is a separate profile with its own name, bests and board rows, exactly as if they were on separate devices.
 
-Three steps for switching (SDK **2.3.1+**, where `set_player_id()` resets the previous person's cached profile, name, pending rename and play session when the ID changes):
+Four steps for switching (SDK **2.3.1+**, where `set_player_id()` resets the previous person's cached profile, name, pending rename and play session when the ID changes):
 
-1. **Set the ID**, then **`login_anonymous()` / `LoginAnonymous()`** with no name.
-2. **Fetch the profile with `get_player_profile()` / `GetPlayerProfile()`**, not `refresh_profile()`: the refresh helper has a 2-second cooldown and silently does nothing inside it, which a quick switch can hit.
-3. **Start a new play session** when the new person's run begins. Sessions are per player.
+1. **Call `logout()` / `Logout()`** first. `set_player_id()` does not drop a signed-in session or a link code that is still waiting for approval; `logout()` does. If nobody on the device ever links an account this is a no-op, so always call it. It emits `logout_success` / `OnLogoutSuccess`: if your game sends that signal to a login screen, ignore it during a switch.
+2. **Set the ID**, then **`login_anonymous()` / `LoginAnonymous()`** with no name.
+3. **Fetch the profile with `get_player_profile()` / `GetPlayerProfile()`**, not `refresh_profile()`: the refresh helper has a 2-second cooldown and silently does nothing inside it, which a quick switch can hit.
+4. **Start a new play session** when the new person's run begins. Sessions are per player.
 
 The SDKs don't persist a `set_player_id()` override, so re-apply it from your roster on startup too.
 
 > **On 2.3.0**
-`set_player_id()` did not reset state, so a rename for a brand-new person after someone else had played was sent to the server and lost. Update to 2.3.1. If you must stay on 2.3.0, call `logout()` before switching and, for a new person, pass their name once at creation (`login_anonymous(name)`) instead of `change_nickname()` before their first score.
-::: Name entry per person is the normal flow from above: offer the box when `get_nickname()` is `""` after the profile is known, rename through the SDK, never pass names into login.
+2.3.0 did not fully reset the previous person's state on a switch, so a new person's `change_nickname()` before their first score was sent to the server and lost. Update to 2.3.1. If you must stay on 2.3.0, follow the same four steps, but give a new person their name at creation with `login_anonymous(name)` instead of `change_nickname()`.
 
-### Roster: Godot 4
+Name entry per person is the normal flow from [Player names](https://docs.cheddaboards.com/concepts/player-names): offer the box when `get_nickname()` is `""` after the profile is known, rename through the SDK, never pass names into login.
+
+## Linking on a shared device
+
+Linking uses up the slot. When someone links, their anonymous profile is merged into their account and its `dev_…` ID stops existing on the server. Selecting that slot again would start a brand-new empty player under the old ID, so remove the slot from your roster when `account_upgraded` / `OnAccountUpgraded` fires. The person's scores are safe on their account, and they stay signed in until the next switch; to play as that account on this device again later, they link again.
+
+A signed-in session belongs to one person, which is why every switch starts with `logout()`. Without it the next person's scores and renames go to the linked account, whatever player ID is set.
+
+If that's more than your game needs, the simple option is to not offer linking on shared installs at all.
+
+## Roster: Godot 4
 
 ```gdscript
 # Roster.gd (autoload). One dev_ ID per local player, saved in user://.
@@ -2989,9 +3110,9 @@ func _ready() -> void:
 		active = cfg.get_value("roster", "active", -1)
 
 func add_player(label: String) -> int:
-	# Same shape the SDK uses for its own device ID.
-	var ts := str(Time.get_unix_time_from_system()).replace(".", "")
-	var id := "dev_%s_%08x" % [ts, randi() & 0x7FFFFFFF]
+	# 128 random bits from the OS. The ID is the player's only credential,
+	# so it must not be guessable (randi() and timestamps are).
+	var id := "dev_" + Crypto.new().generate_random_bytes(16).hex_encode()
 	players.append({ "id": id, "label": label })
 	_save()
 	return players.size() - 1
@@ -2999,6 +3120,7 @@ func add_player(label: String) -> int:
 func select(index: int) -> void:
 	active = index
 	_save()
+	CheddaBoards.logout()                 # drops a signed-in session or pending link code from the previous person
 	CheddaBoards.set_player_id(players[index]["id"])   # 2.3.1+: resets the previous person's state
 	CheddaBoards.login_anonymous()        # no name
 	CheddaBoards.get_player_profile()     # no cooldown; profile_loaded / no_profile then drives name entry
@@ -3012,7 +3134,7 @@ func _save() -> void:
 
 On startup: if `active >= 0`, call `Roster.select(active)` before anything else touches CheddaBoards. When a run starts for the selected person, `start_play_session()` as usual.
 
-### Roster: Unity
+## Roster: Unity
 
 ```csharp
 using System.Collections.Generic;
@@ -3039,8 +3161,11 @@ public static class Roster
     public static int Add(string label)
     {
         Load();
-        // Same shape the SDK uses for its own device ID.
-        string id = $"dev_{System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}_{Random.Range(0, int.MaxValue):x8}";
+        // 128 random bits from the OS. The ID is the player's only credential,
+        // so it must not be guessable (UnityEngine.Random and timestamps are).
+        var bytes = new byte[16];
+        using (var rng = System.Security.Cryptography.RandomNumberGenerator.Create()) rng.GetBytes(bytes);
+        string id = "dev_" + System.BitConverter.ToString(bytes).Replace("-", "").ToLowerInvariant();
         store.players.Add(new Entry { id = id, label = label });
         Save();
         return store.players.Count - 1;
@@ -3052,6 +3177,7 @@ public static class Roster
         store.active = index;
         Save();
         var cb = CheddaBoards.Instance;
+        cb.Logout();             // drops a signed-in session or pending link code from the previous person
         cb.SetPlayerId(store.players[index].id);   // 2.3.1+: resets the previous person's state
         cb.LoginAnonymous();     // no name
         cb.GetPlayerProfile();   // no cooldown; OnProfileLoaded / OnNoProfile then drives name entry
@@ -3064,37 +3190,19 @@ public static class Roster
 
 On startup: if `Roster.Active >= 0`, call `Roster.Select(Roster.Active)` before anything else touches CheddaBoards. Start a play session per run as usual.
 
-### REST
+## REST
 
-Nothing special: `playerId` on every request is whatever you send. Generate one `dev_<unixtime>_<random>` per person, store them, and send the selected one. Include `nickname` only on that person's first submit (or use the rename endpoint); see [Players](https://docs.cheddaboards.com/api/players#change-a-nickname).
+Nothing special: `playerId` on every request is whatever you send. Generate one `dev_` ID per person from a cryptographic random source (at least 128 bits), store them, and send the selected one. Include `nickname` only on that person's first submit (or use the rename endpoint); see [Players](https://docs.cheddaboards.com/api/players#change-a-nickname).
 
 ## Things that cause confusion
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| Returning player's name reverts to `Player_1248` | A name is passed into `login_anonymous()` / `LoginAnonymous()` on every launch, or the SDK is older than 2.2.7 | Log in with no name; update the SDK |
-| Leaderboard shows the same player under several names | Game generates or stores its own name and passes it at login | Same as above; the server is the source of truth, not your save file |
-| `change_nickname` keeps failing with the same message | The value is invalid or taken-and-unsuffixable; rejections are permanent per value | Show the reason, let the player type a different one, never auto-retry |
-| Existing player typed `Alex`, UI shows `Alex` but board shows `Alex_1` | `Alex` was taken; the rename was suffixed | Redraw name displays from `get_nickname()` on every `profile_loaded` |
-| New player typed `Alex`, board shows `Player_1248` | `Alex` was taken when their first score created the profile | Refresh the profile once after the first score; the SDK re-sends the rename and `nickname_changed` fires with `Alex_1`. On raw REST, call the rename endpoint yourself |
-| Passed a name at login, nothing changed | The name was already taken, so the submit kept the old one; no error is raised on this path | Don't pass names at login; use `change_nickname()`, which reports the outcome |
-| Name chosen right after launch is gone a moment later | The name was set while the profile fetch was still in flight; when the profile landed it overwrote the local name | Don't offer the name box until `profile_loaded` or `no_profile` has fired (the flows above do this) |
-| After signing in, the name changed to something else | Player linked an existing account; the account's name wins | Expected. Redraw from `get_nickname()` after `account_upgraded` |
-| New player shows `""` / blank | Profile hasn't loaded yet, or they haven't picked a name | Show "Guest" |
-| Several people share one device and keep overwriting each other | One device ID, so they are one profile; sending names per submit just renames it | One player ID per person, switched before they play; see [Shared devices](#shared-devices-several-players-one-install) |
+| Several people share one device and keep overwriting each other | One device ID, so they are one profile; sending names per submit just renames it | One player ID per person, switched before they play |
+| On a shared device, the next person shows up with the previous person's name, or their scores land on someone else's row | The previous person linked an account and the switch didn't call `logout()`, so their session is still active | Call `logout()` before `set_player_id()` on every switch; see [Linking on a shared device](#linking-on-a-shared-device) |
+| On a shared device, a linked person's slot comes back empty | Linking merged that slot into their account; the old ID no longer exists | Remove the slot on `account_upgraded`; they link again to play as their account |
 
-## Reference
-
-| | Godot | Unity |
-|---|---|---|
-| Log in (no name) | `login_anonymous()` | `LoginAnonymous()` |
-| Current name (`""` = unnamed) | `get_nickname()` | `GetNickname()` |
-| Rename | `change_nickname(name)` | `ChangeNickname(name)` |
-| Accepted | `nickname_changed(name)` | `OnNicknameChanged(name)` |
-| Rejected (permanent per value) | `nickname_error(reason)` | `OnNicknameError(reason)` |
-| Profile known | `profile_loaded(...)` / `no_profile()` | `OnProfileLoaded(...)` / `OnNoProfile` |
-
-Name rule: 3 to 16 characters, `A-Z a-z 0-9 _`. Renames to a taken name are suffixed (`Alex_1`). Players who never pick a name, or whose chosen name is taken at the moment their first score creates the profile, get `Player_N`. A name chosen before the first submit is held locally and sent with that submit. Changing a name changes it on every board and in every game the player has played.
+**See also:** [Player names](https://docs.cheddaboards.com/concepts/player-names) · [Players and accounts](https://docs.cheddaboards.com/concepts/accounts)
 
 ---
 
@@ -3617,7 +3725,7 @@ Anti-cheat is built in and server-side. You set the limits from your dashboard a
 |------------|--------------|
 | **Score & streak caps** | Reject any single submission above a per-round maximum, and reject scores past an absolute all-time ceiling |
 | **Time validation** | With a play session, reject scores impossible for the elapsed time |
-| **Rate limiting** | One submit per player per board every 2 seconds, always on |
+| **Rate limiting** | One submit per player per board every 2 seconds, always on, plus API-level caps ([Rate limits](https://docs.cheddaboards.com/api/rate-limits)) |
 | **Suspicion log** | Every rejection is recorded for you to review — the player only sees a generic error |
 
 ## Configuring limits
@@ -3655,7 +3763,7 @@ When a submission trips a limit, the player gets a **deliberately generic** erro
 {"ok":false,"error":"rejected by game validation rules"}
 ```
 
-The specific reason — which cap, by how much, the actual play duration — goes to your **suspicion log**, visible only to you as the game owner. This is intentional: if the error told the client exactly which limit it hit and by how much, a cheater could binary-search your caps until their fake scores slipped under. You get the detail; they get a wall.
+The specific reason — which cap, by how much, the actual play duration — goes to your **suspicion log**, visible only to you as the game owner. Players appear there by player key, the same one the [moderation](https://docs.cheddaboards.com/concepts/moderation) view uses, so you can go from a flagged entry to removing it. This is intentional: if the error told the client exactly which limit it hit and by how much, a cheater could binary-search your caps until their fake scores slipped under. You get the detail; they get a wall.
 
 Surface the generic error to the player as a soft "score not accepted" and check your suspicion log if you want to know what actually happened.
 
@@ -3707,7 +3815,7 @@ Removing a player's scores does **not** stop them submitting again. If someone i
 
 Every deletion is recorded: what was removed, which board, the scope, whether archives were purged, and when. The log is per-game, visible only to you, and keeps the most recent 2000 records.
 
-Player identifiers in the log are **one-way hashes** — emails and account details are never written to it, so the audit trail can't leak a player's identity. (This is the same privacy posture as the rest of the platform: only nicknames are ever public. See [What's stored](https://docs.cheddaboards.com/concepts/data-model).)
+Players in the log appear as **player keys**, short numeric IDs derived from the account, never as emails or account details. (This is the same posture as the rest of the platform: only nicknames are ever public. See [What's stored](https://docs.cheddaboards.com/concepts/data-model).) A player key is a convenient handle, not an anonymity guarantee: it's a short hash, so someone who already knows a player's account identifier can work out its key.
 
 ## Who can do this
 
@@ -3724,7 +3832,7 @@ The same operations are available over the HTTP API with your dashboard session:
 | `DELETE` | `/games/{gameId}/players/{playerKey}/scores` | Wipe a player from all boards |
 | `GET` | `/games/{gameId}/deletion-log` | Fetch the deletion log |
 
-Add `?archives=true` to the DELETE routes to purge archives as well. The `playerKey` values come from the admin view route — they're stable per player per game, and are the hashed keys, never raw account identifiers.
+Add `?archives=true` to the DELETE routes to purge archives as well. The `playerKey` values come from the admin view route — they're stable per player, and never contain raw account identifiers.
 
 ## FAQ
 
@@ -3798,39 +3906,45 @@ Anonymous play collects no personal information. Account linking uses Google or 
 
 # Self-hosting
 
-CheddaBoards is open source. The backend canister — all the leaderboard, auth, achievement, moderation, and anti-cheat logic — is public and MIT-licensed, and you can deploy your own instance to the Internet Computer. This section is how.
+CheddaBoards is open source end to end on the server side. The backend canister and the REST proxy that runs `api.cheddaboards.com` are both public and MIT-licensed, and you can run your own copy of each. This section is how.
 
-It's worth being upfront about what self-hosting is and isn't.
+It's worth being upfront about what that involves.
 
 ## What's open, what you build
 
 | Piece | Status |
 |-------|--------|
-| **The backend canister** (`main.mo`, the Candid interface) | Open source — [github.com/cheddatech/cheddaboards](https://github.com/cheddatech/cheddaboards). Deploy your own. |
-| **The SDKs** (Godot, Unity) | Open source. Point them at your proxy. |
-| **The proxy / API layer** | **Closed source.** The hosted proxy at cheddaboards.com is not part of the open-source release — you build your own. |
+| **The backend canister** (leaderboards, accounts, achievements, anti-cheat, moderation) | Open source: [cheddatech/cheddaboards](https://github.com/cheddatech/cheddaboards). Deploy your own to the Internet Computer. |
+| **The REST proxy** (API keys, Google/Apple sign-in, device-code login, rate limits) | Open source: [cheddatech/cheddaboards-proxy](https://github.com/cheddatech/cheddaboards-proxy). The same code as the hosted API. Run it on any Node host. |
+| **The SDKs** (Godot 4, Godot 3.6, Unity) | Open source. Point them at your proxy and canister. |
+| **The link page** (`cheddaboards.com/link`, where players approve a device code) | **Not published yet.** Build your own if you want device-code sign-in. |
+| **The developer dashboard** (`cheddaboards.com/developers`) | **Not published yet.** Manage games with `dfx` or the Candid UI, or build your own. |
 
-So self-hosting is two jobs: deploy the canister ([canister guide](https://docs.cheddaboards.com/self-hosting/canister)), then build an HTTP proxy in front of it that verifies OAuth tokens and signs canister calls with your verifier identity ([proxy guide](https://docs.cheddaboards.com/self-hosting/proxy)).
+So self-hosting is three jobs: [deploy the canister](https://docs.cheddaboards.com/self-hosting/canister), [run the proxy](https://docs.cheddaboards.com/self-hosting/proxy) in front of it, and decide how you'll handle the two pieces that aren't published (see [What you'll build yourself](https://docs.cheddaboards.com/self-hosting/proxy#what-you-ll-build-yourself)).
 
-> **The public repo trails the live canister**
-The open-source backend is kept a release or two behind the canister running the hosted service — the public repo is synced in batches, not on every deploy. So a fresh self-host gets a stable, real version of the backend, just not always the newest one that's live at cheddaboards.com. The interface is stable; the gap is in fixes and features that haven't been pushed to the public mirror yet.
+> **Releases**
+The public repos are published from the private source one commit per release, normally the same day it ships. The backend's CHANGELOG has upgrade notes for self-hosters, with security fixes under a **Security** heading that also names the matching proxy release. Only the latest release is supported, so track it.
 
 ## Be honest with yourself about the effort
 
-This is not a one-click deploy or a Docker template. Running your own instance means:
+This is not a one-click deploy. Running your own instance means:
 
-- You're comfortable with **dfx and the Internet Computer** — deploying, upgrading, and managing a canister, and paying its cycles.
-- You'll **write and host your own proxy** — the canister is deliberately gated so it only accepts privileged auth calls from a signing identity you control, which means there's an HTTP layer you have to build and run. There's no reference proxy to copy.
-- You'll **manage your own OAuth credentials, CORS, secrets, and key rotation.**
-- **You're on your own for support.** The whole stack is available and the interface is documented, but self-hosting is a "here are the parts, assemble them" arrangement, not a supported product.
+- You're comfortable with **dfx and the Internet Computer**: deploying and upgrading a canister, taking snapshots, and paying its cycles.
+- You'll **run and secure a Node service**: a signing key that can mint sessions for any user, OAuth client IDs, ingress configuration and log hygiene.
+- You'll **build the missing pieces** you need: a link page for device-code sign-in, and some way to register games and issue API keys.
+- **You're on your own for support.** Everything is documented and open, but it's a set of parts, not a supported product.
 
-If that sounds like more than you want to take on, the [hosted service](https://cheddaboards.com) is free, runs the same backend, and takes about three minutes to wire up — that's the recommended path for almost everyone. Self-hosting exists because infrastructure you build a game on shouldn't be something that can be taken away, not because it's the easy option.
+If that's more than you want, the [hosted service](https://cheddaboards.com) is free, runs the same code, and takes a few minutes to wire up. That's the right choice for almost everyone. Self-hosting exists because infrastructure you build a game on shouldn't be something that can be taken away, not because it's the easy path.
 
-## Why it's built this way
+## How the pieces fit
 
-The canister is the permanent, on-chain part — it holds the data and the rules, and it runs on the IC regardless of any company. The proxy is a thin translation layer: it turns plain HTTP into canister calls and verifies OAuth tokens before minting sessions. Keeping the two separate is what lets the canister be fully open (nothing secret lives in it) while the trust boundary — the signing identity that's allowed to mint sessions — stays under whoever operates the instance. When you self-host, that identity is yours.
+The canister is the permanent part. It holds the data and the rules and runs on the IC regardless of any company. The proxy is a translation layer: it turns plain HTTP into canister calls, verifies Google and Apple tokens, and signs privileged calls with its **verifier** identity. The canister accepts session minting and API-key writes only from that one principal.
 
-**Next:** [Deploy the canister](https://docs.cheddaboards.com/self-hosting/canister) · [Build your proxy](https://docs.cheddaboards.com/self-hosting/proxy)
+That split is what lets everything be open without anything secret living in the code. The trust boundary is the verifier's private key, and when you self-host, that key is yours.
+
+Board reads are the exception: the canister serves scoreboards over HTTP itself, so games read boards without going through the proxy at all.
+
+**Next:** [Deploy the canister](https://docs.cheddaboards.com/self-hosting/canister) · [Run the proxy](https://docs.cheddaboards.com/self-hosting/proxy)
 
 ---
 
@@ -3838,13 +3952,14 @@ The canister is the permanent, on-chain part — it holds the data and the rules
 
 # Deploy the canister
 
-Deploying your own CheddaBoards backend to the Internet Computer. This is the first of the two self-hosting jobs; the second is [building your proxy](https://docs.cheddaboards.com/self-hosting/proxy).
+Deploying your own CheddaBoards backend to the Internet Computer. This is the first of the self-hosting jobs; the second is [running the proxy](https://docs.cheddaboards.com/self-hosting/proxy).
 
 ## Prerequisites
 
-- [dfx](https://internetcomputer.org/docs/current/developer-docs/setup/install/) (the IC SDK)
-- Basic familiarity with Motoko and the Internet Computer
-- For mainnet: a cycles wallet with enough cycles to create and run a canister
+- [dfx](https://internetcomputer.org/docs/current/developer-docs/setup/install/), the IC SDK. Production is built with dfx 0.32.0.
+- Node 20 or later, to generate the verifier identity (and later to run the proxy).
+- For mainnet: cycles to create and run a canister.
+- Basic familiarity with Motoko and the Internet Computer.
 
 ## 1. Clone
 
@@ -3853,120 +3968,203 @@ git clone https://github.com/cheddatech/cheddaboards.git
 cd cheddaboards
 ```
 
-The repo is the backend: `src/main.mo` (the canister logic) and `src/cheddaboards.did` (the Candid interface — the full API contract).
+The canister source is in `src/cheddaboards_v2_backend/`: `main.mo` is the actor, and `types`, `apikeys`, `players` and `scoreboards` are the modules it imports. The Candid interface isn't checked in; it's generated from the source when you build.
 
-## 2. Set your principals
+## 2. Create the verifier identity
 
-Open `src/main.mo` and replace the placeholder principals (`aaaaa-aa`) with your own:
+The verifier is the signing identity your proxy uses. It is the only principal the canister accepts session minting and API-key writes from, so create it first and set its principal in the next step.
+
+From any folder that has `@dfinity/identity` installed (the proxy repo, after `npm ci`, works):
+
+```bash
+node -e "const {Ed25519KeyIdentity}=require('@dfinity/identity');const i=Ed25519KeyIdentity.generate();console.error('principal:',i.getPrincipal().toText());console.log(JSON.stringify(i.toJSON()))" > verifier.json
+```
+
+The principal prints on screen; the identity goes into `verifier.json`. That file is the proxy's `VERIFIER_IDENTITY`. **It can mint a session for any user**, so move it straight into your secret store or password manager and delete the file. Never commit it.
+
+## 3. Set your principals
+
+Open `src/cheddaboards_v2_backend/main.mo` and replace the three placeholder principals (`aaaaa-aa`):
 
 ```motoko
-// Your proxy's signing identity — the only principal allowed to call
-// the privileged auth methods. REPLACE with your own.
+// Your proxy's signing identity: the only principal allowed to make
+// privileged calls. REPLACE with the principal from step 2.
 private transient let VERIFIER_PRINCIPAL : Text = "aaaaa-aa";
 
-// Super admin (your dfx identity) — REPLACE with your own
+// Super admin (your dfx identity). REPLACE with your own.
 private var CONTROLLER : Principal = Principal.fromText("aaaaa-aa");
 
-// Bootstrap admin in postupgrade() (can be the same as controller) — REPLACE
+// Bootstrap admin in postupgrade() (can be the same as controller). REPLACE.
 let firstAdmin = Principal.fromText("aaaaa-aa");
 ```
 
-Get your own principal with:
+Get your dfx principal with `dfx identity get-principal`. Then check nothing was missed; this should print nothing:
 
 ```bash
-dfx identity get-principal
+grep -n "aaaaa-aa" src/cheddaboards_v2_backend/main.mo
 ```
 
-The `VERIFIER_PRINCIPAL` is the principal of the signing identity your **proxy** will use — you'll generate that keypair when you build the proxy, so if you don't have it yet, come back and set it before you rely on auth. `CONTROLLER` and `firstAdmin` are your dfx identity (the admin of the instance).
-
 > **Get CONTROLLER right the first time**
-The actor is `persistent`, so top-level variables are stable and survive upgrades — editing a literal after the first deploy won't change the running value. `VERIFIER_PRINCIPAL` is re-applied in `postupgrade()`, so it *can* be rotated by upgrading. `CONTROLLER` is not, so set it correctly before your first deploy.
+The actor is `persistent`, so top-level variables are stable and survive upgrades: editing a literal after the first deploy doesn't change the running value. `VERIFIER_PRINCIPAL` is re-applied in `postupgrade()`, so you can rotate the verifier by upgrading. `CONTROLLER` is not, so set it correctly before your first deploy.
 
-## 3. Deploy
+## 4. Deploy
 
 ```bash
 # Local testing
 dfx start --background
 dfx deploy
 
-# Production (mainnet)
+# Mainnet, first install
 dfx deploy --network ic
 ```
 
-Note the canister ID it prints — your proxy will need it.
+Note the canister ID it prints; the proxy needs it. The canister uses enhanced orthogonal persistence (`--enhanced-orthogonal-persistence` in `dfx.json`).
 
-## 4. Generate the Candid bindings
+A fresh canister can already serve board reads over HTTP (`https://<canister-id>.raw.icp0.io/games/<gameId>/scoreboards/<boardId>`), but everything that writes or signs in goes through the proxy.
+
+## 5. Register games without the dashboard
+
+The hosted developer dashboard isn't published, so on your own instance you register games and issue keys by calling the canister as your dfx identity. The games you register this way are owned by that identity.
 
 ```bash
-dfx generate cheddaboards_v2_backend
+# gameId, name, description, maxScorePerRound, maxStreakDelta,
+# absoluteScoreCap, absoluteStreakCap, gameUrl, accessMode
+dfx canister call --network ic cheddaboards_v2_backend registerGame '("my-game","My Game","",null,null,null,null,null,null)'
+
+# The game's API key (all-time, weekly and daily boards are created automatically)
+dfx canister call --network ic cheddaboards_v2_backend generateApiKey '("my-game")'
+
+# Optional: a targeted per-level board
+# gameId, boardId, name, description, period (allTime|daily|weekly|monthly|custom),
+# sortBy (score|streak), maxEntries, targeted, intervalDays
+dfx canister call --network ic cheddaboards_v2_backend createScoreboard '("my-game","level-1","Level 1","","allTime","score",null,true,null)'
 ```
 
-The Candid interface (`cheddaboards.did`) defines every method and signature your proxy can call. Every deployed canister also gets the Candid UI for free, so you can exercise the API directly in a browser against your own instance while you build the proxy.
+Every method is also available in the Candid UI for your canister (`https://a4gq6-oaaaa-aaaab-qaa4q-cai.raw.icp0.io/?id=<canister-id>`), which is handy for exploring.
 
-## What you've got, and what's next
+## 6. Upgrade safely
 
-At this point you have a running canister with all the leaderboard, achievement, moderation, and anti-cheat logic — but **games can't reach it yet.** The canister only accepts privileged auth calls from the `VERIFIER_PRINCIPAL`, and it speaks the IC's binary interface, not plain HTTP. Standing up the HTTP layer that games actually talk to is the [proxy](https://docs.cheddaboards.com/self-hosting/proxy) job.
+Every upgrade follows the same routine:
 
-Board *reads* are the exception — the canister serves those over HTTP directly (that's how the SDKs read boards without the proxy), so a freshly deployed canister can already be read from. Everything that writes or authenticates goes through your proxy.
+```bash
+dfx canister --network ic stop cheddaboards_v2_backend
+dfx canister --network ic snapshot create cheddaboards_v2_backend
+dfx deploy cheddaboards_v2_backend --network ic --mode upgrade --wasm-memory-persistence keep
+dfx canister --network ic start cheddaboards_v2_backend
+```
 
-**Next:** [Build your proxy](https://docs.cheddaboards.com/self-hosting/proxy)
+- **Read the CHANGELOG first.** Each release has notes for self-hosters. Some need two deploys, and removing a stable field needs a one-shot migration.
+- **The snapshot is your only rollback.** To roll back: stop, then `dfx canister --network ic snapshot load cheddaboards_v2_backend <snapshot-id>`, then start.
+- **Keep one snapshot at a time.** Each is a full copy of the heap and counts towards memory and cycle burn. Use `snapshot create --replace <id>` and delete it once the upgrade is proven.
+- **Check the module hash.** `dfx canister --network ic info cheddaboards_v2_backend` should match `shasum -a 256` of the wasm you built. Trust that, not dfx's success message.
+- **Sanity-check state.** Save `getSystemInfo` before the upgrade and diff it after; only live counters should move.
+
+## 7. Keep an eye on it
+
+- `memStats` (query) and `GET /metrics` on the raw domain report cycles, memory and map sizes, with a warning status below 5T cycles or above 1.5 GB.
+- Admin commands go through `adminGate`. After upgrading to v0.13.0 or later, run `adminGate("sweepOrphanApiKeys", [])` once to see keys left behind by deleted games, then with `["confirm"]` to revoke them.
+
+**Next:** [Run the proxy](https://docs.cheddaboards.com/self-hosting/proxy)
 
 ---
 
 <!-- https://docs.cheddaboards.com/self-hosting/proxy -->
 
-# Build your proxy
+# Run the proxy
 
-The proxy is the HTTP layer games talk to. It verifies OAuth tokens, signs canister calls with your verifier identity, and translates plain HTTP into the canister's binary interface. **You build and host this yourself.** The hosted proxy at cheddaboards.com is closed source — it's not in the open-source release and there's no reference implementation to copy. What follows is the contract your proxy must satisfy, not the hosted proxy's code.
+The proxy is the HTTP layer games talk to. It checks API keys, verifies Google and Apple sign-in, runs the device-code flow, applies rate limits, and calls the canister signed as your **verifier** identity. The code is [cheddatech/cheddaboards-proxy](https://github.com/cheddatech/cheddaboards-proxy), the same code that runs `api.cheddaboards.com`, under MIT.
 
-## What the proxy is for
+Its README is the full reference for configuration. This page covers what you need to get a self-hosted instance right.
 
-The canister is deliberately gated: it only accepts privileged auth calls (minting sessions, etc.) from one principal — the **verifier**. That gate is the whole security model. It means a game client can't call the canister directly to forge a session; it has to go through something that holds the verifier's signing key and has verified the player first. That something is your proxy.
+## Run it
 
-So the proxy does two jobs the canister can't do for itself:
+Node 20 or later.
 
-1. **Verify OAuth tokens.** When a player signs in with Google or Apple, the proxy checks the token with the provider (e.g. via JWKS) before it will mint anything. The canister trusts the proxy to have done this.
-2. **Sign canister calls as the verifier.** The proxy calls the canister with the signing identity whose principal you set as `VERIFIER_PRINCIPAL`. The canister rejects those privileged calls from anyone else.
+```bash
+git clone https://github.com/cheddatech/cheddaboards-proxy.git
+cd cheddaboards-proxy
+npm ci
+CANISTER_ID=<your-canister-id> VERIFIER_IDENTITY="$(cat verifier.json)" npm start   # listens on $PORT, default 8080
+```
 
-## What your proxy needs
+`VERIFIER_IDENTITY` is the identity you created in [Deploy the canister](https://docs.cheddaboards.com/self-hosting/canister#_2-create-the-verifier-identity). In production, load it from a secret manager, never from a file in the repo.
 
-However you choose to build and configure it, a working proxy needs:
+On Google Cloud Run, buildpacks build it with no Dockerfile:
 
-- **The canister ID** of your deployed instance, and an IC host — `https://icp-api.io` for mainnet, or `http://127.0.0.1:4943` for local dfx.
-- **A signing identity** (e.g. an Ed25519 keypair) whose principal you set as `VERIFIER_PRINCIPAL` in `main.mo`. **Keep the private key secret** — it can mint a session for any user, so it's the most sensitive thing in your deployment. Treat it like a root credential: never commit it, store it encrypted, and have a rotation plan (the canister lets you rotate the verifier by upgrading, since it's re-applied in `postupgrade()`).
-- **OAuth client IDs** for whichever providers you support — Google client ID, Apple Service ID / Bundle ID — and the logic to verify tokens against them.
-- **Allowed CORS origins** for the domains your games are served from. Avoid wildcards in production.
+```bash
+gcloud run deploy <service> --source . --region <region> --max-instances 1 \
+  --set-env-vars CANISTER_ID=<your-canister-id> \
+  --set-secrets VERIFIER_IDENTITY=<secret-name>:latest
+```
 
-## The interface it calls
+> **Run exactly one instance**
+Rate limits, caches and pending device codes live in process memory. A second instance halves every limit and breaks device-code login, because a code minted on one instance can't be approved on the other. On Cloud Run that means `--max-instances 1`. `--min-instances 1` avoids cold starts.
 
-The Candid interface (`cheddaboards.did`) defines every method and signature. The methods your proxy will lean on, by area:
+## Configure it
 
-- **Auth:** `socialLoginAndGetProfile`, `createSessionForVerifiedUser`, `validateSession`, `destroySession`
-- **Scores:** `submitScore` (fan-out), `submitScoreToBoard` (targeted), `getLeaderboard`, `getScoreboard`, `getPlayerScoreboardRank`
-- **Sessions:** `startGameSessionByApiKey`, `startGameSessionBySession`, `getPlaySessionStatus`
-- **Profiles:** `getMyProfileBySession`, `getUserProfile`, `changeNicknameAndGetProfile`
-- **Account linking:** `migrateAnonymousAccount`
-- **Moderation:** `getScoreboardAdmin`, `removeScoreEntry`, `removePlayerScores`, `getEntryDeletionLog` (each in session and principal variants)
-- **Achievements:** `unlockAchievement`, `getAchievements`
+Required: `CANISTER_ID` and `VERIFIER_IDENTITY`. The rest is optional; these are the ones most self-hosters need:
 
-Most methods come in two flavours — a principal-authenticated variant and a `BySession` variant — because the dashboard authenticates by principal while game clients authenticate by session token. Match the variant to how the caller is authing.
+| Variable | What it's for |
+|---|---|
+| `GOOGLE_CLIENT_IDS` | Comma-separated Google OAuth client IDs **you own**, for dashboard sign-in |
+| `APPLE_BUNDLE_ID` | Your Apple Service ID / bundle ID |
+| `DEVICE_AUTH_GOOGLE_CLIENT_ID`, `DEVICE_AUTH_APPLE_BUNDLE_ID` | The credentials your link page uses |
+| `DEVICE_AUTH_URL` | Your link page. Defaults to `https://cheddaboards.com/link`, so **change it** |
+| `CLIENT_IP_HOPS` | Where the real client IP sits in `X-Forwarded-For` (next section) |
+| `PAUSED_GAMES` | Game IDs whose submits get a 503, for incidents |
 
-> **Keep your Candid bindings in sync with the canister**
-Your proxy calls the canister through generated Candid bindings (`.did.js` / the declarations from `dfx generate`). Those bindings must contain **every method your proxy calls** — if the proxy calls a method that isn't in its copy of the interface, the call throws at runtime with an unhelpful error, not a clear "unknown method". So whenever you upgrade the canister with new or changed methods, regenerate the bindings and redeploy the proxy with the fresh copy. A canister/proxy interface mismatch is one of the easier ways to break a working deployment.
+The [README](https://github.com/cheddatech/cheddaboards-proxy#environment-variables) lists every variable, including each rate limit. Defaults match the hosted service; see [Rate limits](https://docs.cheddaboards.com/api/rate-limits).
 
-## The HTTP shape is yours to define
+## Client IPs and ingress
 
-There's no required URL scheme — your proxy exposes whatever HTTP routes you like and maps them onto canister calls. If you want the **official SDKs to work against your instance unmodified**, mirror the routes they expect (the [REST reference](https://docs.cheddaboards.com/api/overview) documents the hosted API's shape). If you're only serving your own games, you're free to design the HTTP surface however suits you.
+Per-IP limits depend on knowing the real client address. Callers control the left of `X-Forwarded-For`, and each proxy in front of you appends to the right, so you set `CLIENT_IP_HOPS` to where your real IP lands, counted from the right:
 
-## Device-code login
+1. Deploy, then run `curl -H "X-Forwarded-For: 1.2.3.4" https://<your-host>/health`.
+2. In `clientIp.chain`, find your real IP and count its position from the right (the last entry is 1). Set that number.
+3. Run the curl again: `resolved` should be your IP, not `1.2.3.4`.
 
-The device-code sign-in flow (the QR / short-code login) lives **in the proxy layer, not the canister.** If you want it, you implement it in your proxy — issuing codes, holding pending-authorization state, and polling. The canister provides the session primitives (`createSessionForVerifiedUser` and friends); the RFC 8628 dance around them is the proxy's job.
+Set it too low and everyone behind your CDN shares one IP and gets throttled together. Set it too high and callers choose their own IP.
 
-## Honestly, though
+The setting only holds for one path in. If your service is also reachable directly (Cloud Run's `*.run.app` URL alongside a CDN, say), the chain on that path is shorter and callers can pick their IP. Restrict direct access so all traffic goes through the path you measured.
 
-Building a correct, secure proxy — token verification, key custody, CORS, rate limiting, session handling — is real work, and getting the verifier-key handling wrong undermines the whole gate. The [hosted service](https://cheddaboards.com) exists so you don't have to. Self-host if you specifically want to own the whole stack; otherwise the free hosted proxy runs this exact backend for you.
+## Check it
 
-**See also:** [Self-hosting overview](https://docs.cheddaboards.com/self-hosting/overview) · [Deploy the canister](https://docs.cheddaboards.com/self-hosting/canister) · [API reference](https://docs.cheddaboards.com/api/overview)
+`GET /health` shows the build stamp, the principal the proxy signs as, and how it resolved your IP. **`signingPrincipal` must equal the `VERIFIER_PRINCIPAL` in your canister.** If it doesn't, every sign-in and API-key write fails with `Unauthorized`.
+
+## Point the SDKs at your instance
+
+The SDKs ship pointing at the hosted service. In each SDK, change the API base URL to your proxy and the direct-read URL to `https://<your-canister-id>.raw.icp0.io`. In the Godot addon these are the `API_BASE_URL` and `DIRECT_READ_URL` constants at the top of `CheddaBoards.gd`.
+
+## What you'll build yourself
+
+Two pieces of the hosted service aren't published yet.
+
+**A link page, if you want device-code sign-in.** This is the web page players open on their phone to approve a code. It has to:
+
+1. Read the code from the URL and check it with `GET /auth/device/status/:code`.
+2. Sign the player in with Google or Apple using the credentials in `DEVICE_AUTH_GOOGLE_CLIENT_ID` / `DEVICE_AUTH_APPLE_BUNDLE_ID`.
+3. Send `POST /auth/device/approve` with `user_code`, the provider, and the ID token (`idToken` for Google, `identityToken` for Apple).
+
+Without one, players can still play anonymously; they just can't link an account.
+
+**Game management.** Register games, issue keys and create boards by calling the canister as your dfx identity (see [Register games without the dashboard](https://docs.cheddaboards.com/self-hosting/canister#_5-register-games-without-the-dashboard)). A dashboard of your own can use the proxy's session routes or the canister's `BySession` methods.
+
+## Rules for your instance
+
+These hold whether you run the proxy as published or change it:
+
+- **Only accept OAuth tokens issued for your own client IDs and bundle ID.** Sessions are keyed on the player's email and work across every game on the instance, so accepting an audience someone else controls would let them sign in as anyone who uses their app.
+- **Sign every canister call as the verifier, queries included.** API key validation and lookups by player ID return nothing for any other caller.
+- **Treat game API keys as public.** They ship inside game builds. They identify a game; they don't prove a caller is trusted. Integrity comes from play-session validation, caps, rate limits and moderation.
+- **Keep the verifier key like a root credential.** Encrypted, never committed, with a rotation plan. Rotate by generating a new identity, setting the new principal in `main.mo`, upgrading the canister, then updating the proxy.
+- **Keep the Candid bindings in sync.** The proxy calls the canister through `_lib/cheddaboards_v2_backend.did.js`. If you change the canister's interface, regenerate it with `dfx generate` and redeploy the proxy; a missing method throws at runtime.
+- **Track releases.** Security fixes land in both repos' changelogs. Upgrade the canister and proxy together when a release says so.
+
+## Building your own instead
+
+You can write your own HTTP layer against the Candid interface instead. The rules above are the contract; the proxy's source is the worked example. If you want the official SDKs to work unmodified, mirror the routes in the [REST reference](https://docs.cheddaboards.com/api/overview).
+
+**See also:** [Self-hosting overview](https://docs.cheddaboards.com/self-hosting/overview) · [Deploy the canister](https://docs.cheddaboards.com/self-hosting/canister) · [Rate limits](https://docs.cheddaboards.com/api/rate-limits)
 
 ---
 

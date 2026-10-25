@@ -6,7 +6,7 @@ Anti-cheat is built in and server-side. You set the limits from your dashboard a
 |------------|--------------|
 | **Score & streak caps** | Reject any single submission above a per-round maximum, and reject scores past an absolute all-time ceiling |
 | **Time validation** | With a play session, reject scores impossible for the elapsed time |
-| **Rate limiting** | One submit per player per board every 2 seconds, always on |
+| **Rate limiting** | One submit per player per board every 2 seconds, always on, plus API-level caps ([Rate limits](/api/rate-limits)) |
 | **Suspicion log** | Every rejection is recorded for you to review — the player only sees a generic error |
 
 ## Configuring limits
@@ -44,7 +44,7 @@ When a submission trips a limit, the player gets a **deliberately generic** erro
 {"ok":false,"error":"rejected by game validation rules"}
 ```
 
-The specific reason — which cap, by how much, the actual play duration — goes to your **suspicion log**, visible only to you as the game owner. This is intentional: if the error told the client exactly which limit it hit and by how much, a cheater could binary-search your caps until their fake scores slipped under. You get the detail; they get a wall.
+The specific reason — which cap, by how much, the actual play duration — goes to your **suspicion log**, visible only to you as the game owner. Players appear there by player key, the same one the [moderation](/concepts/moderation) view uses, so you can go from a flagged entry to removing it. This is intentional: if the error told the client exactly which limit it hit and by how much, a cheater could binary-search your caps until their fake scores slipped under. You get the detail; they get a wall.
 
 Surface the generic error to the player as a soft "score not accepted" and check your suspicion log if you want to know what actually happened.
 

@@ -146,13 +146,14 @@ Sessions last 30 days and renew on use. Any `401` or `403` on a session request 
 
 ## 10. Rate limits and retries
 
-- One score submit per player **per board** every 2 seconds. Always on, not configurable. Back-to-back submits to different boards are fine.
+- One score submit per player **per board** every 2 seconds. Always on, not configurable. Back-to-back submits to different boards are fine. Rejected with `400`.
+- API limits return `429` with a `Retry-After` header (seconds): 120 submits per player per game per hour, 60 submits per minute per IP, and a per-game API key budget on writes. Wait `Retry-After`, never retry in a tight loop, and submit once per game over, not per event. Full list: https://docs.cheddaboards.com/api/rate-limits
 - Submits are safe to retry after a timeout: bests only ever go up, and repeat submits within a few seconds count as one play.
 - Board reads are edge-cached for ~30 seconds. Do not poll faster than that; refresh after the player's own submit instead.
 
 ## 11. Error strings you should match on
 
-All errors arrive as `{"ok":false,"error":"..."}`. Status codes: 400 input/validation/rate-limit, 401/403 dead session, 404 route or board not found, 428 device code pending, 5xx transient (retry with backoff).
+All errors arrive as `{"ok":false,"error":"..."}`. Status codes: 400 input/validation/2-second throttle, 401/403 dead session, 404 route or board not found, 428 device code pending, 429 rate limited (honour `Retry-After`), 503 submits paused or device-code pool full (honour `Retry-After`), other 5xx transient (retry with backoff).
 
 | Error (substring is enough) | Cause | Correct handling |
 |---|---|---|

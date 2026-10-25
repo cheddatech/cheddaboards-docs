@@ -52,6 +52,7 @@ export default defineConfig({
           { text: 'Scoreboards', link: '/api/scoreboards' },
           { text: 'Players', link: '/api/players' },
           { text: 'Achievements', link: '/api/achievements' },
+          { text: 'Rate limits', link: '/api/rate-limits' },
           { text: 'Errors', link: '/api/errors' }
         ]
       },
@@ -70,6 +71,7 @@ export default defineConfig({
           { text: 'Data model', link: '/concepts/data-model' },
           { text: 'Players and accounts', link: '/concepts/accounts' },
           { text: 'Player names', link: '/concepts/player-names' },
+          { text: 'Shared devices', link: '/concepts/shared-devices' },
           { text: 'Device code login', link: '/concepts/device-code' },
           { text: 'Timed leaderboards', link: '/concepts/timed-leaderboards' },
           { text: 'Category boards', link: '/concepts/category-boards' },
@@ -83,7 +85,7 @@ export default defineConfig({
         items: [
           { text: 'Overview', link: '/self-hosting/overview' },
           { text: 'Deploy the canister', link: '/self-hosting/canister' },
-          { text: 'Build your proxy', link: '/self-hosting/proxy' }
+          { text: 'Run the proxy', link: '/self-hosting/proxy' }
         ]
       }
     ],
@@ -97,7 +99,7 @@ export default defineConfig({
       text: 'Edit this page on GitHub'
     },
     footer: {
-      message: "Can't be taken away. Open source backend and SDKs.",
+      message: "Can't be taken away. Open source backend, API and SDKs.",
       copyright: '© CheddaTech Ltd'
     }
   }

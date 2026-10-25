@@ -89,6 +89,8 @@ A score that trips a cap or time check is rejected with a generic `"rejected by 
 
 **One submit per player per board every 2 seconds**, enforced server-side. It's always on and not configurable — it only blocks bot-speed submission, never legitimate play. Because it's keyed per board, back-to-back submits to *different* boards don't trip it.
 
+On top of that, the API caps each player at 120 submits per game per hour and each IP at 60 submits a minute, returning `429` with `Retry-After`. Submit once per game over and you'll never see them. See [Rate limits](/api/rate-limits).
+
 ## Retry safety
 
 Submits are safe to retry. The backend keeps per-player bests, so resending a score after a timeout can never lower a score or streak — no client-side dedupe needed. Play counts are also protected against quick duplicates: repeat submits from the same player within a few seconds count as one play, so an immediate retry is fully safe. Only well-spaced duplicates move the play count — avoid long-running blind retry *loops* if play counts matter to you.

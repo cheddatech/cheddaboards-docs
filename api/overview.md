@@ -57,6 +57,6 @@ Always check `ok` before reading `data`. Status codes and error strings are in [
 - All request and response bodies are JSON.
 - Game and scoreboard IDs in URL paths must be 1–64 characters of letters, digits, `_` or `-`; anything else is rejected with a `400` before reaching the backend.
 - Timestamps in responses are **nanoseconds** since epoch (ICP-standard) — divide by 1,000,000 for JavaScript milliseconds.
-- Rate limit: one score submit per player per board every 2 seconds.
+- Rate limits: one score submit per player per board every 2 seconds, plus hourly and per-IP caps that return `429`. See [Rate limits](/api/rate-limits).
 
 **See also:** [REST quick start](/quickstart/rest) · [Scores](/api/scores) · [Authentication](/api/authentication) · [Errors](/api/errors)
