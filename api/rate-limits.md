@@ -12,7 +12,7 @@ There are two layers:
 | Limit | Applies to | Over the limit |
 |---|---|---|
 | 1 submit per player per board every 2 s | Every submit | `400`, wait and resend |
-| 120 submits per player per game per hour | API-key and signed-in submits | `429` "Too many score submissions for this player. Submit once per game over." |
+| 500 submits per player per game per hour | API-key and signed-in submits | `429` "Too many score submissions for this player. Submit once per game over." |
 | 60 submits per minute per client IP | All games combined | `429` "Too many score submissions from this address" |
 
 The 2-second throttle is keyed per board, so a run that submits to a level board and a shared `runs` board back to back is fine. The hourly cap is the one a forgotten debug build (a submit on every tap or every frame) will hit first.

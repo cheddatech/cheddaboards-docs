@@ -83,7 +83,7 @@ Nickname rule everywhere: **3–16 characters, `A–Z a–z 0–9 _` only**. On 
 | `POST` | `/play-sessions/start` | API key | `{gameId, playerId}` |
 | `POST` | `/play-sessions/end` | API key | `{playSessionToken}` |
 | `POST` | `/achievements` | API key or session | `{playerId, gameId, achievementId}` or `{playerId, gameId, achievementIds:[...]}` (max 100) |
-| `GET` | `/game` | API key | Game metadata, including `timeValidationEnabled` and the board list |
+| `GET` | `/game` | API key | Game metadata: `totalPlayers`, `totalPlays`, `timeValidationEnabled` and the board list. Use it for a "N players" counter |
 | `GET` | `/health` | none | Service health |
 
 There is **no** `GET /players/{id}/achievements`. Read achievements from the profile.
@@ -107,7 +107,8 @@ Every game is created with three **fan-out** boards: `all-time`, `weekly`, `dail
 - A `POST /scores` **without** `scoreboardId` fans out: profile bests updated, every fan-out board updated. This is the normal "run ended" submit.
 - A `POST /scores` **with** `scoreboardId` writes to that one **targeted** board only, and increments the play count but not the profile's aggregate bests. Use for per-level, per-mode, per-category boards.
 - Targeted boards must be created in the dashboard first (Scoreboards → Board Type: Targeted). A submit never creates a board.
-- Never put a fan-out board's ID (`all-time`, `weekly`, `daily`) in `scoreboardId`. It is rejected. Omit the field instead.
+- Do not put a fan-out board's ID (`all-time`, `weekly`, `daily`) in `scoreboardId`. The API converts it into a plain submit (response `"fanOut": true`), which is an extra hop. Omit the field instead.
+- A game with a single ranking needs no custom board: submit without `scoreboardId` and read `GET /games/{gameId}/scoreboards/all-time?limit=N`.
 - Only a player's best survives on each board. Score and streak are independent maxima. Submitting a lower score never lowers anything.
 
 ## 7. Play sessions and time validation
@@ -147,7 +148,7 @@ Sessions last 30 days and renew on use. Any `401` or `403` on a session request 
 ## 10. Rate limits and retries
 
 - One score submit per player **per board** every 2 seconds. Always on, not configurable. Back-to-back submits to different boards are fine. Rejected with `400`.
-- API limits return `429` with a `Retry-After` header (seconds): 120 submits per player per game per hour, 60 submits per minute per IP, and a per-game API key budget on writes. Wait `Retry-After`, never retry in a tight loop, and submit once per game over, not per event. Full list: https://docs.cheddaboards.com/api/rate-limits
+- API limits return `429` with a `Retry-After` header (seconds): 500 submits per player per game per hour, 60 submits per minute per IP, and a per-game API key budget on writes. Wait `Retry-After`, never retry in a tight loop, and submit once per game over, not per event. Full list: https://docs.cheddaboards.com/api/rate-limits
 - Submits are safe to retry after a timeout: bests only ever go up, and repeat submits within a few seconds count as one play.
 - Board reads are edge-cached for ~30 seconds. Do not poll faster than that; refresh after the player's own submit instead.
 

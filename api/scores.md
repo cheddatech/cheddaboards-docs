@@ -37,7 +37,7 @@ Success:
 {"ok":true,"data":{"message":"🎉 New high score and streak! Score: 1234, Streak: 3"}}
 ```
 
-Check the `ok` field for success — `message` is human-readable feedback for the player (it varies: "New high score", "Score submitted", etc.), not a structured value to parse. On failure:
+Check the `ok` field for success — `message` is human-readable feedback for the player (it varies: "New high score", "Score submitted", etc.), not a structured value to parse. A targeted submit also echoes `scoreboardId`, and a submit that named a fan-out board adds `"fanOut": true` (see [targeted submits](#targeted-submits)). On failure:
 
 ```json
 {"ok":false,"error":"<reason>"}
@@ -69,7 +69,7 @@ Behavior specific to targeted submits:
 - **Counts plays, not aggregate bests.** A targeted submit increments the player's play count but doesn't move their aggregate profile score/streak — send a plain submit as well if you want both.
 - **Per-board throttle.** The 2-second rate limit is keyed per board, so chaining several targeted submits in one run (e.g. a level board plus a shared `runs` board) is fine.
 - **The board must exist and be targeted.** Submitting a `scoreboardId` for a board that doesn't exist returns `"Scoreboard '<id>' not found for this game."` — the API never auto-creates a board. Create it in the console first (Board Type → Targeted).
-- **Never send a fan-out board's ID.** `all-time`, `weekly`, `daily` and custom fan-out boards are updated by a plain submit; naming one in `scoreboardId` is rejected. Omit the field instead.
+- **Don't send a fan-out board's ID.** `all-time`, `weekly`, `daily` and custom fan-out boards are updated by a plain submit. If you name one in `scoreboardId`, the API converts it into a plain submit and adds `"fanOut": true` to the response. Nothing breaks, but omit the field instead and skip the extra hop.
 
 Full treatment: [Category boards](/concepts/category-boards).
 
@@ -77,7 +77,9 @@ Full treatment: [Category boards](/concepts/category-boards).
 
 `nickname` on a submit is optional, and **presence is meaning**: a submit that includes it renames the player to that value, while a submit that omits it leaves the stored name untouched. So don't send it on every submit — send it only when the player has just chosen a name. The one place it's the natural tool: a brand-new player's **first** submit, which creates their profile — include `nickname` there and the profile is born named; omit it and the profile is created with a server-generated name (`Player_1248`) that stays until renamed via the [nickname endpoints](/api/players#change-a-nickname).
 
-When present, it's applied subject to the rule **3–16 characters, letters, digits, and underscores** (`A–Z a–z 0–9 _`). A **taken** name isn't an error — it's auto-suffixed (`Chedz` → `Chedz_1`). A genuinely **invalid** name is rejected and the player keeps their existing name. See [Errors → nickname](/api/errors#nickname-rejected).
+When present, it's applied subject to the rule **3–16 characters, letters, digits, and underscores** (`A–Z a–z 0–9 _`, ASCII only). On a submit, a **taken** name is silently ignored: the score still lands and the player keeps their current name, with no error and no suffix. A genuinely **invalid** name is rejected and the player keeps their existing name. See [Errors → nickname](/api/errors#nickname-rejected).
+
+If you need to know which name the player ended up with, use the [rename endpoint](/api/players#change-a-nickname) instead: it suffixes a taken name (`Chedz` → `Chedz_1`) and returns the name it applied.
 
 ## Anti-cheat & time validation
 
@@ -89,7 +91,7 @@ A score that trips a cap or time check is rejected with a generic `"rejected by 
 
 **One submit per player per board every 2 seconds**, enforced server-side. It's always on and not configurable — it only blocks bot-speed submission, never legitimate play. Because it's keyed per board, back-to-back submits to *different* boards don't trip it.
 
-On top of that, the API caps each player at 120 submits per game per hour and each IP at 60 submits a minute, returning `429` with `Retry-After`. Submit once per game over and you'll never see them. See [Rate limits](/api/rate-limits).
+On top of that, the API caps each player at 500 submits per game per hour and each IP at 60 submits a minute, returning `429` with `Retry-After`. Submit once per game over and you'll never see them. See [Rate limits](/api/rate-limits).
 
 ## Retry safety
 

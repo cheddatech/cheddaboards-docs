@@ -41,7 +41,28 @@ There's no "anonymous login" call. An anonymous player is just a **persistent ID
 
 ### Nicknames
 
-One rule everywhere: **3–16 characters, letters, digits, and underscores only** (`A–Z a–z 0–9 _`). This applies to nicknames on submits, both nickname-change endpoints, and sign-in names. On score submits the field is **optional, and presence is meaning**: a submit that includes `nickname` renames the player to it **if that name is free**, and silently leaves the stored name alone if it's taken (no error, no suffix); a submit that omits it never touches the name. So only include it when the player has just chosen a name (see §1). On the two **nickname-change endpoints** a taken name is handled for you: the backend appends a numeric suffix (`PlayerName` → `PlayerName_1`) and tells you the name it applied. An invalid nickname is rejected with a clear `400` on every path — rejection is permanent for that value, so don't retry the same nickname; ask the player for another. The whole model, with name-entry flows for the SDKs, is on [Player names](/concepts/player-names).
+One rule everywhere: **3–16 characters, letters, digits, and underscores only** (`A–Z a–z 0–9 _`). Only these ASCII characters count: Japanese, Chinese, Korean, Cyrillic, accented letters and emoji are all rejected, so if your players write in another script, tell them on the name field rather than letting the request fail. This applies to nicknames on submits, both nickname-change endpoints, and sign-in names. On score submits the field is **optional, and presence is meaning**: a submit that includes `nickname` renames the player to it **if that name is free**, and silently leaves the stored name alone if it's taken (no error, no suffix); a submit that omits it never touches the name. So only include it when the player has just chosen a name (see §1). On the two **nickname-change endpoints** a taken name is handled for you: the backend appends a numeric suffix (`PlayerName` → `PlayerName_1`) and tells you the name it applied. An invalid nickname is rejected with a clear `400` on every path — rejection is permanent for that value, so don't retry the same nickname; ask the player for another. The whole model, with name-entry flows for the SDKs, is on [Player names](/concepts/player-names).
+
+### Letting players type a name
+
+For the common "type your name for the leaderboard" screen, set the name **once, when the player types it**, with the rename endpoint, and keep it out of your submits after that:
+
+```bash
+curl -X PUT https://api.cheddaboards.com/players/dev_1730000000_1a2b3c4d/nickname \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: cb_my-game_xxxxxxxxx" \
+  -H "X-Game-ID: my-game" \
+  -d '{"nickname": "Chedz"}'
+```
+
+```json
+{"ok":true,"data":{"message":"Nickname 'Chedz' was taken, changed to Chedz_1","nickname":"Chedz_1","gameProfile":{"score":1234,"streak":3}}}
+```
+
+- **Show `data.nickname`, not what was typed.** If the name was taken, this is the suffixed name the player actually got (`Chedz` → `Chedz_1`).
+- **It works before the first score.** For a brand-new player the API holds the name (for up to 24 hours) and applies it on their first submit. The response then says `"pending": true` and `gameProfile` is `null`.
+- **Don't send it every run.** The name lives on the player, not the score, so it carries over to every later submit. Store the chosen name on the device and only call this again when the player changes it. A rename before every submit doubles your write calls and counts against your game's [write budget](/api/rate-limits#api-key-budget).
+- **A `400` means the name is invalid** (length or characters), not taken. Ask for a different one.
 
 ## 1. Submit a score
 
@@ -79,7 +100,9 @@ Check `ok` for success — `message` is human-readable feedback for the player, 
 
 (Timestamps are nanoseconds since epoch — divide by 1,000,000 for JavaScript milliseconds.)
 
-A submit with no `scoreboardId` (above) **fans out**: the score is recorded against the player's profile and applied to every one of the game's standard time-based boards (all-time, weekly, daily, etc.).
+A submit with no `scoreboardId` (above) **fans out**: the score is recorded against the player's profile and applied to every one of the game's fan-out boards (all-time, weekly, daily, and any custom fan-out boards).
+
+**If your game has one ranking, this is all you need.** Submit without `scoreboardId` and read the `all-time` board. You don't need to create a board of your own; every game has `all-time`, `weekly` and `daily` from the moment it's registered.
 
 If you started a play session for the run (see §4 — recommended), include its token in the body as `"playSessionToken": "<token>"` so the backend can time-validate the score. If the game has time validation enabled, the session token is **required**, not optional.
 
@@ -116,7 +139,7 @@ How a targeted submit differs from a plain one:
 - It counts toward the player's play count for the game, but score/streak totals on the aggregate profile only move on plain submits. If you also want the score reflected in the player's overall bests, send a separate plain submit.
 - The same play-session / time-validation and rate-limit rules apply as for a plain submit.
 - You can chain several targeted submits for one run (e.g. a `runs` board plus the relevant `level-14` board) — the throttle is keyed per board, so back-to-back board writes won't trip the 2-second gate.
-- Never put a **fan-out** board's ID (`all-time`, `weekly`, `daily`…) in `scoreboardId` — that's rejected. Those boards are updated by a plain submit, so just omit the field.
+- Don't put a **fan-out** board's ID (`all-time`, `weekly`, `daily`, or a custom fan-out board) in `scoreboardId`. The API turns it into a plain submit, which fans out to every fan-out board anyway, and marks the response with `"fanOut": true`. It works, but it's an extra hop on every submit, so omit the field instead.
 
 The target board must already exist **and be marked as targeted**. Create it in the **Developer Console → Scoreboards** tab: set a Scoreboard ID, choose **Board Type → Targeted**, and create it. Submitting a `scoreboardId` that points at a board that doesn't exist returns `"Scoreboard '<id>' not found for this game."` — create the board in the console first; a submit never creates a board.
 
@@ -263,14 +286,21 @@ if (!playerId) {
   localStorage.setItem('cb_player_id', playerId);
 }
 
-async function post(path, body) {
-  const res = await fetch(API + path, { method: 'POST', headers, body: JSON.stringify(body) });
-  return res.json();
+// Leaderboard calls are extras: never let a network error or an API
+// rejection throw into the game itself.
+async function call(method, path, body) {
+  try {
+    const res = await fetch(API + path, { method, headers, body: body && JSON.stringify(body) });
+    return await res.json();   // always { ok, data } or { ok: false, error }
+  } catch (e) {
+    return { ok: false, error: 'network' };
+  }
 }
+const post = (path, body) => call('POST', path, body);
 
 // 1. Run starts → open a play session
 const start = await post('/play-sessions/start', { gameId: GAME_ID, playerId });
-const playSessionToken = start.data.ok;
+const playSessionToken = start.ok ? start.data.ok : undefined;
 
 // ... the player plays ...
 
@@ -289,13 +319,22 @@ if (!submit.ok) console.warn('Score rejected:', submit);
 // 3. Close the session
 await post('/play-sessions/end', { playSessionToken });
 
-// 4. Show the board
-const res = await fetch(`${API}/leaderboard?sort=score&limit=10`, { headers });
-const board = await res.json();
-for (const entry of board.data.leaderboard) {
-  console.log(`#${entry.rank} ${entry.nickname} — ${entry.score}`);
+// 4. Show the top 10. Ask for what you display: limit=10, not 100.
+const board = await call('GET', `/games/${GAME_ID}/scoreboards/all-time?limit=10`);
+if (board.ok) {
+  for (const entry of board.data.entries) {
+    console.log(`#${entry.rank} ${entry.nickname} — ${entry.score}`);
+  }
 }
+
+// Optional: "1,234 players have tried" — no counter service needed.
+const game = await call('GET', '/game');
+if (game.ok) console.log(`${game.data.totalPlayers} players, ${game.data.totalPlays} runs`);
 ```
+
+The response shapes above are fixed: a submit returns `{ ok, data: { message } }`, a board returns `data.entries` with `rank`, `nickname`, `score`, `streak` on each entry, and failures always return `{ ok: false, error }` with a non-2xx status. You don't need to code around other shapes.
+
+For read-only pages you can also fetch boards [straight from the chain](#reading-boards-straight-from-the-chain), with no API key and no proxy in the path.
 
 That's a complete integration. Everything else on this page — targeted boards, sign-in, nickname changes — is optional on top.
 
@@ -319,8 +358,7 @@ That's a complete integration. Everything else on this page — targeted boards,
 | `POST` | `/play-sessions/start` | Begin an anti-cheat session (`{ gameId, playerId }`) |
 | `POST` | `/play-sessions/end` | End a session (`{ playSessionToken }`) |
 | `POST` | `/achievements` | Unlock achievements — single (`{ achievementId }`) or batch (`{ achievementIds: [...] }`); read them back via the player's profile |
-| `GET`  | `/game` | Game metadata |
-| `GET`  | `/game/stats` | Game stats |
+| `GET`  | `/game` | Game metadata: name, `totalPlayers`, `totalPlays`, `timeValidationEnabled`, and the board list |
 | `GET`  | `/stats` | Platform submission stats |
 | `GET`  | `/health` | Service health check |
 

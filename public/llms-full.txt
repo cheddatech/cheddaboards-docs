@@ -11,7 +11,9 @@ Key facts for answering questions accurately:
 - Every game gets three fan-out boards at registration: `all-time`, `weekly`, `daily` (note the hyphen). Monthly/custom boards are created in the dashboard. A plain `POST /scores` with no `scoreboardId` fans out to all of them; `scoreboardId` targets exactly one targeted board and never creates one.
 - If a game has time validation on, `POST /scores` requires a `playSessionToken` from `POST /play-sessions/start`. The SDKs attach the token but do not start sessions for you.
 - Board reads are also served directly from the canister at https://fdvph-sqaaa-aaaap-qqc4a-cai.raw.icp0.io (keyless, CORS-open, same paths and JSON).
-- Nicknames are 3–16 characters, letters/digits/underscores; on the nickname-change endpoints a taken name is auto-suffixed (e.g. Chedz → Chedz_1), not rejected. `nickname` on a submit renames the player if the name is free (silently ignored if taken), so omit it unless the player just chose a name, and never pass a name into the SDK login call. Details: https://docs.cheddaboards.com/concepts/player-names
+- Nicknames are 3–16 characters, ASCII letters/digits/underscores only (no Japanese, accents or emoji); on the nickname-change endpoints a taken name is auto-suffixed (e.g. Chedz → Chedz_1), not rejected. `nickname` on a submit renames the player if the name is free (silently ignored if taken), so omit it unless the player just chose a name, and never pass a name into the SDK login call. Details: https://docs.cheddaboards.com/concepts/player-names
+- For a typed-name screen, set the name once with PUT /players/{playerId}/nickname when the player types it (works before the first score; the response's data.nickname is the applied, possibly suffixed, name), store it on the device, and don't re-send it every run.
+- A game with one ranking needs no custom board: POST /scores without scoreboardId, read GET /games/{gameId}/scoreboards/all-time?limit=N. GET /game returns totalPlayers and totalPlays for a player counter.
 - Rate limits: one score submit per player per board every 2 seconds (400), plus API caps that return 429 with `Retry-After` (120 submits per player per game per hour, 60 per minute per IP, a per-game write budget). Submit once per game over. Submits are safe to retry (per-player bests only ever go up). Details: https://docs.cheddaboards.com/api/rate-limits
 - Timestamps in responses are nanoseconds since epoch (ICP standard).
 - Sessions last 30 days and renew on use; any 401/403 means the session is dead, discard it and re-run sign-in.
@@ -164,7 +166,7 @@ Nickname rule everywhere: **3–16 characters, `A–Z a–z 0–9 _` only**. On 
 | `POST` | `/play-sessions/start` | API key | `{gameId, playerId}` |
 | `POST` | `/play-sessions/end` | API key | `{playSessionToken}` |
 | `POST` | `/achievements` | API key or session | `{playerId, gameId, achievementId}` or `{playerId, gameId, achievementIds:[...]}` (max 100) |
-| `GET` | `/game` | API key | Game metadata, including `timeValidationEnabled` and the board list |
+| `GET` | `/game` | API key | Game metadata: `totalPlayers`, `totalPlays`, `timeValidationEnabled` and the board list. Use it for a "N players" counter |
 | `GET` | `/health` | none | Service health |
 
 There is **no** `GET /players/{id}/achievements`. Read achievements from the profile.
@@ -188,7 +190,8 @@ Every game is created with three **fan-out** boards: `all-time`, `weekly`, `dail
 - A `POST /scores` **without** `scoreboardId` fans out: profile bests updated, every fan-out board updated. This is the normal "run ended" submit.
 - A `POST /scores` **with** `scoreboardId` writes to that one **targeted** board only, and increments the play count but not the profile's aggregate bests. Use for per-level, per-mode, per-category boards.
 - Targeted boards must be created in the dashboard first (Scoreboards → Board Type: Targeted). A submit never creates a board.
-- Never put a fan-out board's ID (`all-time`, `weekly`, `daily`) in `scoreboardId`. It is rejected. Omit the field instead.
+- Do not put a fan-out board's ID (`all-time`, `weekly`, `daily`) in `scoreboardId`. The API converts it into a plain submit (response `"fanOut": true`), which is an extra hop. Omit the field instead.
+- A game with a single ranking needs no custom board: submit without `scoreboardId` and read `GET /games/{gameId}/scoreboards/all-time?limit=N`.
 - Only a player's best survives on each board. Score and streak are independent maxima. Submitting a lower score never lowers anything.
 
 ## 7. Play sessions and time validation
@@ -228,7 +231,7 @@ Sessions last 30 days and renew on use. Any `401` or `403` on a session request 
 ## 10. Rate limits and retries
 
 - One score submit per player **per board** every 2 seconds. Always on, not configurable. Back-to-back submits to different boards are fine. Rejected with `400`.
-- API limits return `429` with a `Retry-After` header (seconds): 120 submits per player per game per hour, 60 submits per minute per IP, and a per-game API key budget on writes. Wait `Retry-After`, never retry in a tight loop, and submit once per game over, not per event. Full list: https://docs.cheddaboards.com/api/rate-limits
+- API limits return `429` with a `Retry-After` header (seconds): 500 submits per player per game per hour, 60 submits per minute per IP, and a per-game API key budget on writes. Wait `Retry-After`, never retry in a tight loop, and submit once per game over, not per event. Full list: https://docs.cheddaboards.com/api/rate-limits
 - Submits are safe to retry after a timeout: bests only ever go up, and repeat submits within a few seconds count as one play.
 - Board reads are edge-cached for ~30 seconds. Do not poll faster than that; refresh after the player's own submit instead.
 
@@ -342,7 +345,28 @@ There's no "anonymous login" call. An anonymous player is just a **persistent ID
 
 ### Nicknames
 
-One rule everywhere: **3–16 characters, letters, digits, and underscores only** (`A–Z a–z 0–9 _`). This applies to nicknames on submits, both nickname-change endpoints, and sign-in names. On score submits the field is **optional, and presence is meaning**: a submit that includes `nickname` renames the player to it **if that name is free**, and silently leaves the stored name alone if it's taken (no error, no suffix); a submit that omits it never touches the name. So only include it when the player has just chosen a name (see §1). On the two **nickname-change endpoints** a taken name is handled for you: the backend appends a numeric suffix (`PlayerName` → `PlayerName_1`) and tells you the name it applied. An invalid nickname is rejected with a clear `400` on every path — rejection is permanent for that value, so don't retry the same nickname; ask the player for another. The whole model, with name-entry flows for the SDKs, is on [Player names](https://docs.cheddaboards.com/concepts/player-names).
+One rule everywhere: **3–16 characters, letters, digits, and underscores only** (`A–Z a–z 0–9 _`). Only these ASCII characters count: Japanese, Chinese, Korean, Cyrillic, accented letters and emoji are all rejected, so if your players write in another script, tell them on the name field rather than letting the request fail. This applies to nicknames on submits, both nickname-change endpoints, and sign-in names. On score submits the field is **optional, and presence is meaning**: a submit that includes `nickname` renames the player to it **if that name is free**, and silently leaves the stored name alone if it's taken (no error, no suffix); a submit that omits it never touches the name. So only include it when the player has just chosen a name (see §1). On the two **nickname-change endpoints** a taken name is handled for you: the backend appends a numeric suffix (`PlayerName` → `PlayerName_1`) and tells you the name it applied. An invalid nickname is rejected with a clear `400` on every path — rejection is permanent for that value, so don't retry the same nickname; ask the player for another. The whole model, with name-entry flows for the SDKs, is on [Player names](https://docs.cheddaboards.com/concepts/player-names).
+
+### Letting players type a name
+
+For the common "type your name for the leaderboard" screen, set the name **once, when the player types it**, with the rename endpoint, and keep it out of your submits after that:
+
+```bash
+curl -X PUT https://api.cheddaboards.com/players/dev_1730000000_1a2b3c4d/nickname \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: cb_my-game_xxxxxxxxx" \
+  -H "X-Game-ID: my-game" \
+  -d '{"nickname": "Chedz"}'
+```
+
+```json
+{"ok":true,"data":{"message":"Nickname 'Chedz' was taken, changed to Chedz_1","nickname":"Chedz_1","gameProfile":{"score":1234,"streak":3}}}
+```
+
+- **Show `data.nickname`, not what was typed.** If the name was taken, this is the suffixed name the player actually got (`Chedz` → `Chedz_1`).
+- **It works before the first score.** For a brand-new player the API holds the name (for up to 24 hours) and applies it on their first submit. The response then says `"pending": true` and `gameProfile` is `null`.
+- **Don't send it every run.** The name lives on the player, not the score, so it carries over to every later submit. Store the chosen name on the device and only call this again when the player changes it. A rename before every submit doubles your write calls and counts against your game's [write budget](https://docs.cheddaboards.com/api/rate-limits#api-key-budget).
+- **A `400` means the name is invalid** (length or characters), not taken. Ask for a different one.
 
 ## 1. Submit a score
 
@@ -380,7 +404,9 @@ Check `ok` for success — `message` is human-readable feedback for the player, 
 
 (Timestamps are nanoseconds since epoch — divide by 1,000,000 for JavaScript milliseconds.)
 
-A submit with no `scoreboardId` (above) **fans out**: the score is recorded against the player's profile and applied to every one of the game's standard time-based boards (all-time, weekly, daily, etc.).
+A submit with no `scoreboardId` (above) **fans out**: the score is recorded against the player's profile and applied to every one of the game's fan-out boards (all-time, weekly, daily, and any custom fan-out boards).
+
+**If your game has one ranking, this is all you need.** Submit without `scoreboardId` and read the `all-time` board. You don't need to create a board of your own; every game has `all-time`, `weekly` and `daily` from the moment it's registered.
 
 If you started a play session for the run (see §4 — recommended), include its token in the body as `"playSessionToken": "<token>"` so the backend can time-validate the score. If the game has time validation enabled, the session token is **required**, not optional.
 
@@ -417,7 +443,7 @@ How a targeted submit differs from a plain one:
 - It counts toward the player's play count for the game, but score/streak totals on the aggregate profile only move on plain submits. If you also want the score reflected in the player's overall bests, send a separate plain submit.
 - The same play-session / time-validation and rate-limit rules apply as for a plain submit.
 - You can chain several targeted submits for one run (e.g. a `runs` board plus the relevant `level-14` board) — the throttle is keyed per board, so back-to-back board writes won't trip the 2-second gate.
-- Never put a **fan-out** board's ID (`all-time`, `weekly`, `daily`…) in `scoreboardId` — that's rejected. Those boards are updated by a plain submit, so just omit the field.
+- Don't put a **fan-out** board's ID (`all-time`, `weekly`, `daily`, or a custom fan-out board) in `scoreboardId`. The API turns it into a plain submit, which fans out to every fan-out board anyway, and marks the response with `"fanOut": true`. It works, but it's an extra hop on every submit, so omit the field instead.
 
 The target board must already exist **and be marked as targeted**. Create it in the **Developer Console → Scoreboards** tab: set a Scoreboard ID, choose **Board Type → Targeted**, and create it. Submitting a `scoreboardId` that points at a board that doesn't exist returns `"Scoreboard '<id>' not found for this game."` — create the board in the console first; a submit never creates a board.
 
@@ -564,14 +590,21 @@ if (!playerId) {
   localStorage.setItem('cb_player_id', playerId);
 }
 
-async function post(path, body) {
-  const res = await fetch(API + path, { method: 'POST', headers, body: JSON.stringify(body) });
-  return res.json();
+// Leaderboard calls are extras: never let a network error or an API
+// rejection throw into the game itself.
+async function call(method, path, body) {
+  try {
+    const res = await fetch(API + path, { method, headers, body: body && JSON.stringify(body) });
+    return await res.json();   // always { ok, data } or { ok: false, error }
+  } catch (e) {
+    return { ok: false, error: 'network' };
+  }
 }
+const post = (path, body) => call('POST', path, body);
 
 // 1. Run starts → open a play session
 const start = await post('/play-sessions/start', { gameId: GAME_ID, playerId });
-const playSessionToken = start.data.ok;
+const playSessionToken = start.ok ? start.data.ok : undefined;
 
 // ... the player plays ...
 
@@ -590,13 +623,22 @@ if (!submit.ok) console.warn('Score rejected:', submit);
 // 3. Close the session
 await post('/play-sessions/end', { playSessionToken });
 
-// 4. Show the board
-const res = await fetch(`${API}/leaderboard?sort=score&limit=10`, { headers });
-const board = await res.json();
-for (const entry of board.data.leaderboard) {
-  console.log(`#${entry.rank} ${entry.nickname} — ${entry.score}`);
+// 4. Show the top 10. Ask for what you display: limit=10, not 100.
+const board = await call('GET', `/games/${GAME_ID}/scoreboards/all-time?limit=10`);
+if (board.ok) {
+  for (const entry of board.data.entries) {
+    console.log(`#${entry.rank} ${entry.nickname} — ${entry.score}`);
+  }
 }
+
+// Optional: "1,234 players have tried" — no counter service needed.
+const game = await call('GET', '/game');
+if (game.ok) console.log(`${game.data.totalPlayers} players, ${game.data.totalPlays} runs`);
 ```
+
+The response shapes above are fixed: a submit returns `{ ok, data: { message } }`, a board returns `data.entries` with `rank`, `nickname`, `score`, `streak` on each entry, and failures always return `{ ok: false, error }` with a non-2xx status. You don't need to code around other shapes.
+
+For read-only pages you can also fetch boards [straight from the chain](#reading-boards-straight-from-the-chain), with no API key and no proxy in the path.
 
 That's a complete integration. Everything else on this page — targeted boards, sign-in, nickname changes — is optional on top.
 
@@ -620,8 +662,7 @@ That's a complete integration. Everything else on this page — targeted boards,
 | `POST` | `/play-sessions/start` | Begin an anti-cheat session (`{ gameId, playerId }`) |
 | `POST` | `/play-sessions/end` | End a session (`{ playSessionToken }`) |
 | `POST` | `/achievements` | Unlock achievements — single (`{ achievementId }`) or batch (`{ achievementIds: [...] }`); read them back via the player's profile |
-| `GET`  | `/game` | Game metadata |
-| `GET`  | `/game/stats` | Game stats |
+| `GET`  | `/game` | Game metadata: name, `totalPlayers`, `totalPlays`, `timeValidationEnabled`, and the board list |
 | `GET`  | `/stats` | Platform submission stats |
 | `GET`  | `/health` | Service health check |
 
@@ -1260,7 +1301,7 @@ Generate `playerId` once per player (random, e.g. `dev_<unixtime>_<random>`), st
 
 ## Jam-shaped details
 
-**Rate limits won't bite you.** Submits are throttled at one per player per board every 2 seconds, and capped at 120 per player per hour — a normal game-over loop never notices. ([All limits](https://docs.cheddaboards.com/api/rate-limits).) If you're doing something weirder (per-kill submits, presence heartbeats — [it's been done](https://docs.cheddaboards.com/concepts/category-boards)), targeted boards are throttled per board, so spreading writes is fine.
+**Rate limits won't bite you.** Submits are throttled at one per player per board every 2 seconds, and capped at 500 per player per hour — a normal game-over loop never notices. ([All limits](https://docs.cheddaboards.com/api/rate-limits).) If you're doing something weirder (per-kill submits, presence heartbeats — [it's been done](https://docs.cheddaboards.com/concepts/category-boards)), targeted boards are throttled per board, so spreading writes is fine.
 
 **Rating-day traffic is nothing to plan for.** A front-page itch spike needs nothing from you — no quotas to raise, no config to change, no bill at the end.
 
@@ -1507,7 +1548,7 @@ Success:
 {"ok":true,"data":{"message":"🎉 New high score and streak! Score: 1234, Streak: 3"}}
 ```
 
-Check the `ok` field for success — `message` is human-readable feedback for the player (it varies: "New high score", "Score submitted", etc.), not a structured value to parse. On failure:
+Check the `ok` field for success — `message` is human-readable feedback for the player (it varies: "New high score", "Score submitted", etc.), not a structured value to parse. A targeted submit also echoes `scoreboardId`, and a submit that named a fan-out board adds `"fanOut": true` (see [targeted submits](#targeted-submits)). On failure:
 
 ```json
 {"ok":false,"error":"<reason>"}
@@ -1539,7 +1580,7 @@ Behavior specific to targeted submits:
 - **Counts plays, not aggregate bests.** A targeted submit increments the player's play count but doesn't move their aggregate profile score/streak — send a plain submit as well if you want both.
 - **Per-board throttle.** The 2-second rate limit is keyed per board, so chaining several targeted submits in one run (e.g. a level board plus a shared `runs` board) is fine.
 - **The board must exist and be targeted.** Submitting a `scoreboardId` for a board that doesn't exist returns `"Scoreboard '<id>' not found for this game."` — the API never auto-creates a board. Create it in the console first (Board Type → Targeted).
-- **Never send a fan-out board's ID.** `all-time`, `weekly`, `daily` and custom fan-out boards are updated by a plain submit; naming one in `scoreboardId` is rejected. Omit the field instead.
+- **Don't send a fan-out board's ID.** `all-time`, `weekly`, `daily` and custom fan-out boards are updated by a plain submit. If you name one in `scoreboardId`, the API converts it into a plain submit and adds `"fanOut": true` to the response. Nothing breaks, but omit the field instead and skip the extra hop.
 
 Full treatment: [Category boards](https://docs.cheddaboards.com/concepts/category-boards).
 
@@ -1547,7 +1588,9 @@ Full treatment: [Category boards](https://docs.cheddaboards.com/concepts/categor
 
 `nickname` on a submit is optional, and **presence is meaning**: a submit that includes it renames the player to that value, while a submit that omits it leaves the stored name untouched. So don't send it on every submit — send it only when the player has just chosen a name. The one place it's the natural tool: a brand-new player's **first** submit, which creates their profile — include `nickname` there and the profile is born named; omit it and the profile is created with a server-generated name (`Player_1248`) that stays until renamed via the [nickname endpoints](https://docs.cheddaboards.com/api/players#change-a-nickname).
 
-When present, it's applied subject to the rule **3–16 characters, letters, digits, and underscores** (`A–Z a–z 0–9 _`). A **taken** name isn't an error — it's auto-suffixed (`Chedz` → `Chedz_1`). A genuinely **invalid** name is rejected and the player keeps their existing name. See [Errors → nickname](https://docs.cheddaboards.com/api/errors#nickname-rejected).
+When present, it's applied subject to the rule **3–16 characters, letters, digits, and underscores** (`A–Z a–z 0–9 _`, ASCII only). On a submit, a **taken** name is silently ignored: the score still lands and the player keeps their current name, with no error and no suffix. A genuinely **invalid** name is rejected and the player keeps their existing name. See [Errors → nickname](https://docs.cheddaboards.com/api/errors#nickname-rejected).
+
+If you need to know which name the player ended up with, use the [rename endpoint](https://docs.cheddaboards.com/api/players#change-a-nickname) instead: it suffixes a taken name (`Chedz` → `Chedz_1`) and returns the name it applied.
 
 ## Anti-cheat & time validation
 
@@ -1559,7 +1602,7 @@ A score that trips a cap or time check is rejected with a generic `"rejected by 
 
 **One submit per player per board every 2 seconds**, enforced server-side. It's always on and not configurable — it only blocks bot-speed submission, never legitimate play. Because it's keyed per board, back-to-back submits to *different* boards don't trip it.
 
-On top of that, the API caps each player at 120 submits per game per hour and each IP at 60 submits a minute, returning `429` with `Retry-After`. Submit once per game over and you'll never see them. See [Rate limits](https://docs.cheddaboards.com/api/rate-limits).
+On top of that, the API caps each player at 500 submits per game per hour and each IP at 60 submits a minute, returning `429` with `Retry-After`. Submit once per game over and you'll never see them. See [Rate limits](https://docs.cheddaboards.com/api/rate-limits).
 
 ## Retry safety
 
@@ -1757,13 +1800,19 @@ PUT /players/{playerId}/nickname     # anonymous — body: { "nickname": "..." }
 PUT /profile/nickname                # signed-in — X-Session-Token, body: { "nickname": "..." }
 ```
 
-The rule is the same on both: **3–16 characters, letters, digits, and underscores** (`A–Z a–z 0–9 _`).
+The rule is the same on both: **3–16 characters, letters, digits, and underscores** (`A–Z a–z 0–9 _`, ASCII only).
+
+```json
+{"ok":true,"data":{"message":"Nickname 'Chedz' was taken, changed to Chedz_1","nickname":"Chedz_1","gameProfile":{"score":1234,"streak":3}}}
+```
+
+`data.nickname` is the name actually applied; show that rather than what the player typed.
 
 - A **taken** name isn't an error on these two endpoints — it's auto-suffixed (`Chedz` → `Chedz_1`) and the response reports the name actually applied. (A `nickname` carried on a *score submit* behaves differently: see [Player names](https://docs.cheddaboards.com/concepts/player-names).)
 - A genuinely **invalid** name is rejected with one of: `Nickname must be at least 3 characters`, `Nickname must be 16 characters or less`, `Nickname can only contain letters, numbers, and underscores`. That rejection is permanent for that value — ask for a different name rather than retrying.
 
-> **An anonymous player must exist server-side before a rename sticks**
-An anonymous player isn't created on the backend until their **first score submit** — before that there's no server record for the nickname endpoint to update. Two clean ways to name a brand-new player: include `nickname` in their **first score submit** (if that name is free the profile is created with it; if it's taken the profile is created as `Player_1248` instead, with no suffixing on this path), or let the server assign the generated name and offer a rename once the first score has landed. The official SDKs (Godot 2.2.7+, Unity 2.3.0+) hold a pre-profile rename locally, send it with the first submit, and if the profile that loads afterwards shows a different name (the chosen one was taken), re-send the rename so the player ends up with the suffixed version rather than `Player_N`. The full picture, with copy-paste name-entry flows, is on [Player names](https://docs.cheddaboards.com/concepts/player-names).
+> **Renaming a brand-new player**
+An anonymous player isn't created on the backend until their **first score submit**. If you call `PUT /players/{playerId}/nickname` before that, the API holds the name for up to 24 hours and applies it on the player's first submit. The response says `"pending": true` with `gameProfile: null`. If the name is taken by then, the profile is created as `Player_1248`; check the profile after the first score and rename again if you need to. Including `nickname` in the first submit has the same effect. The official SDKs (Godot 2.2.7+, Unity 2.3.0+) hold a pre-profile rename locally, send it with the first submit, and if the profile that loads afterwards shows a different name (the chosen one was taken), re-send the rename so the player ends up with the suffixed version rather than `Player_N`. The full picture, with copy-paste name-entry flows, is on [Player names](https://docs.cheddaboards.com/concepts/player-names).
 
 ## Identity, briefly
 
@@ -1896,7 +1945,7 @@ There are two layers:
 | Limit | Applies to | Over the limit |
 |---|---|---|
 | 1 submit per player per board every 2 s | Every submit | `400`, wait and resend |
-| 120 submits per player per game per hour | API-key and signed-in submits | `429` "Too many score submissions for this player. Submit once per game over." |
+| 500 submits per player per game per hour | API-key and signed-in submits | `429` "Too many score submissions for this player. Submit once per game over." |
 | 60 submits per minute per client IP | All games combined | `429` "Too many score submissions from this address" |
 
 The 2-second throttle is keyed per board, so a run that submits to a level board and a shared `runs` board back to back is fine. The hourly cap is the one a forgotten debug build (a submit on every tap or every frame) will hit first.
@@ -1982,7 +2031,7 @@ The game has **time validation** enabled, which makes the play-session token req
 
 ### Submitting to a fan-out board by ID
 
-A `scoreboardId` on a submit means "this one targeted board only", so sending the ID of a **fan-out** board (`all-time`, `weekly`, `daily`, or a custom fan-out board) is rejected. To update those boards, **omit `scoreboardId`** — a plain submit already fans out to every one of them. See [Scores → targeted submits](https://docs.cheddaboards.com/api/scores#targeted-submits).
+Not an error. A `scoreboardId` on a submit means "this one targeted board only", so the ID of a **fan-out** board (`all-time`, `weekly`, `daily`, or a custom fan-out board) doesn't fit. The API converts the request into a plain submit, which fans out to every one of those boards, and adds `"fanOut": true` to the response. To skip the conversion, **omit `scoreboardId`**. See [Scores → targeted submits](https://docs.cheddaboards.com/api/scores#targeted-submits).
 
 ### `rejected by game validation rules`
 
@@ -2000,7 +2049,7 @@ Nicknames must be **3–16 characters, letters, digits, and underscores only**. 
 
 A rejection is **permanent for that value** — don't retry the same nickname, ask the player for a different one.
 
-A nickname that's merely **taken** is not an error: the backend appends a numeric suffix automatically (`PlayerName` → `PlayerName_1`), and the response tells you the name that was actually applied.
+A nickname that's merely **taken** is not an error. On the nickname endpoints the backend appends a numeric suffix (`PlayerName` → `PlayerName_1`) and the response tells you the name actually applied. On a score submit, a taken `nickname` is silently ignored and the player keeps their current name.
 
 ### `authorization_pending` (HTTP 428)
 
@@ -3804,7 +3853,7 @@ curl "https://api.cheddaboards.com/games/my-game/scoreboards/level-14?limit=100"
 - **Same anti-cheat.** Play-session / time-validation and rate-limit rules are identical to a plain submit.
 - **Per-board throttle.** The 2-second gate is keyed per (player, game, board), so chaining several board submits in one run is fine.
 - **Must exist and be targeted.** The board has to exist *and* be marked Targeted. Submitting a `scoreboardId` for a board that doesn't exist returns `"Scoreboard '<id>' not found for this game."` — the API never auto-creates a board on submit. See [Errors](https://docs.cheddaboards.com/api/errors).
-- **Never target a fan-out board.** Sending the ID of a fan-out board (`all-time`, `weekly`, `daily`…) in `scoreboardId` is rejected — those are updated by a plain submit, so just omit the field.
+- **Don't target a fan-out board.** The ID of a fan-out board (`all-time`, `weekly`, `daily`…) in `scoreboardId` gets converted into a plain submit (the response says `"fanOut": true`). Those boards are updated by a plain submit anyway, so just omit the field.
 
 ## Combining with reset cadence
 

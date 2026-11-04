@@ -35,7 +35,7 @@ The game has **time validation** enabled, which makes the play-session token req
 
 ### Submitting to a fan-out board by ID
 
-A `scoreboardId` on a submit means "this one targeted board only", so sending the ID of a **fan-out** board (`all-time`, `weekly`, `daily`, or a custom fan-out board) is rejected. To update those boards, **omit `scoreboardId`** — a plain submit already fans out to every one of them. See [Scores → targeted submits](/api/scores#targeted-submits).
+Not an error. A `scoreboardId` on a submit means "this one targeted board only", so the ID of a **fan-out** board (`all-time`, `weekly`, `daily`, or a custom fan-out board) doesn't fit. The API converts the request into a plain submit, which fans out to every one of those boards, and adds `"fanOut": true` to the response. To skip the conversion, **omit `scoreboardId`**. See [Scores → targeted submits](/api/scores#targeted-submits).
 
 ### `rejected by game validation rules`
 
@@ -53,7 +53,7 @@ Nicknames must be **3–16 characters, letters, digits, and underscores only**. 
 
 A rejection is **permanent for that value** — don't retry the same nickname, ask the player for a different one.
 
-A nickname that's merely **taken** is not an error: the backend appends a numeric suffix automatically (`PlayerName` → `PlayerName_1`), and the response tells you the name that was actually applied.
+A nickname that's merely **taken** is not an error. On the nickname endpoints the backend appends a numeric suffix (`PlayerName` → `PlayerName_1`) and the response tells you the name actually applied. On a score submit, a taken `nickname` is silently ignored and the player keeps their current name.
 
 ### `authorization_pending` (HTTP 428)
 

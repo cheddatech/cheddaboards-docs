@@ -74,13 +74,19 @@ PUT /players/{playerId}/nickname     # anonymous — body: { "nickname": "..." }
 PUT /profile/nickname                # signed-in — X-Session-Token, body: { "nickname": "..." }
 ```
 
-The rule is the same on both: **3–16 characters, letters, digits, and underscores** (`A–Z a–z 0–9 _`).
+The rule is the same on both: **3–16 characters, letters, digits, and underscores** (`A–Z a–z 0–9 _`, ASCII only).
+
+```json
+{"ok":true,"data":{"message":"Nickname 'Chedz' was taken, changed to Chedz_1","nickname":"Chedz_1","gameProfile":{"score":1234,"streak":3}}}
+```
+
+`data.nickname` is the name actually applied; show that rather than what the player typed.
 
 - A **taken** name isn't an error on these two endpoints — it's auto-suffixed (`Chedz` → `Chedz_1`) and the response reports the name actually applied. (A `nickname` carried on a *score submit* behaves differently: see [Player names](/concepts/player-names).)
 - A genuinely **invalid** name is rejected with one of: `Nickname must be at least 3 characters`, `Nickname must be 16 characters or less`, `Nickname can only contain letters, numbers, and underscores`. That rejection is permanent for that value — ask for a different name rather than retrying.
 
-::: warning An anonymous player must exist server-side before a rename sticks
-An anonymous player isn't created on the backend until their **first score submit** — before that there's no server record for the nickname endpoint to update. Two clean ways to name a brand-new player: include `nickname` in their **first score submit** (if that name is free the profile is created with it; if it's taken the profile is created as `Player_1248` instead, with no suffixing on this path), or let the server assign the generated name and offer a rename once the first score has landed. The official SDKs (Godot 2.2.7+, Unity 2.3.0+) hold a pre-profile rename locally, send it with the first submit, and if the profile that loads afterwards shows a different name (the chosen one was taken), re-send the rename so the player ends up with the suffixed version rather than `Player_N`. The full picture, with copy-paste name-entry flows, is on [Player names](/concepts/player-names).
+::: tip Renaming a brand-new player
+An anonymous player isn't created on the backend until their **first score submit**. If you call `PUT /players/{playerId}/nickname` before that, the API holds the name for up to 24 hours and applies it on the player's first submit. The response says `"pending": true` with `gameProfile: null`. If the name is taken by then, the profile is created as `Player_1248`; check the profile after the first score and rename again if you need to. Including `nickname` in the first submit has the same effect. The official SDKs (Godot 2.2.7+, Unity 2.3.0+) hold a pre-profile rename locally, send it with the first submit, and if the profile that loads afterwards shows a different name (the chosen one was taken), re-send the rename so the player ends up with the suffixed version rather than `Player_N`. The full picture, with copy-paste name-entry flows, is on [Player names](/concepts/player-names).
 :::
 
 ## Identity, briefly

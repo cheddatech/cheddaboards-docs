@@ -106,7 +106,7 @@ curl "https://api.cheddaboards.com/games/my-game/scoreboards/level-14?limit=100"
 - **Same anti-cheat.** Play-session / time-validation and rate-limit rules are identical to a plain submit.
 - **Per-board throttle.** The 2-second gate is keyed per (player, game, board), so chaining several board submits in one run is fine.
 - **Must exist and be targeted.** The board has to exist *and* be marked Targeted. Submitting a `scoreboardId` for a board that doesn't exist returns `"Scoreboard '<id>' not found for this game."` — the API never auto-creates a board on submit. See [Errors](/api/errors).
-- **Never target a fan-out board.** Sending the ID of a fan-out board (`all-time`, `weekly`, `daily`…) in `scoreboardId` is rejected — those are updated by a plain submit, so just omit the field.
+- **Don't target a fan-out board.** The ID of a fan-out board (`all-time`, `weekly`, `daily`…) in `scoreboardId` gets converted into a plain submit (the response says `"fanOut": true`). Those boards are updated by a plain submit anyway, so just omit the field.
 
 ## Combining with reset cadence
 
