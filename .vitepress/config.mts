@@ -5,6 +5,7 @@ export default defineConfig({
   description: 'Online leaderboards for any game engine. Hosted or self-hosted.',
   cleanUrls: true,
   srcExclude: ['README.md'],
+  markdown: { languageAlias: { motoko: 'swift' } },
   lastUpdated: true,
   appearance: 'dark',
   sitemap: { hostname: 'https://docs.cheddaboards.com' },
