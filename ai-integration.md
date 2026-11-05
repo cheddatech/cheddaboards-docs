@@ -124,7 +124,9 @@ Always implement the lifecycle so the game keeps working if the developer turns 
 2. Run ends → `POST /scores` with `playSessionToken` in the body.
 3. After the submit → `POST /play-sessions/end` with `{playSessionToken}`.
 
-Sessions are capped per player. End them. When testing, use a fresh `playerId` rather than accumulating sessions on one.
+One session covers a whole run: if the run submits to several boards (a plain submit plus targeted boards), pass the same token to each. Each board accepts a session once; a repeat submit to the same board gets `Session already used`. A player holds at most 3 open sessions per game, and starting another ends the oldest, so it never fails. Still end sessions after the run.
+
+Targeted boards that store non-points values (a speedrun time encoded as a large number) can be set to skip the game's score caps and score-per-second check from the dashboard; streak caps and session checks still apply.
 
 Check `GET /game` → `data.timeValidationEnabled` if you need to know the game's current setting.
 
@@ -165,7 +167,7 @@ All errors arrive as `{"ok":false,"error":"..."}`. Status codes: 400 input/valid
 | `authorization_pending` (HTTP 428) | Device code not yet approved | Keep polling every 5 s until 200 or expiry |
 | `Too many pending device authorizations. Try again shortly.` (503) | Transient cap | Wait, request a new code |
 | rate-limit message (400) | Submitted to the same board within 2 s | Wait and resend, or stop over-submitting |
-| too many active play sessions | Sessions not ended | Call `/play-sessions/end`; use a fresh `playerId` when testing |
+| `Session already used` | Second submit to the same board on one session | Start a new session for each run; one session can post once to each board |
 | `Unknown endpoint: <method> <path>` | Wrong path | Check section 5. Usually the nonexistent achievements GET route. |
 | 401 / 403 on a session request | Session expired, logged out, or account removed | Discard the token, fall back to sign-in |
 

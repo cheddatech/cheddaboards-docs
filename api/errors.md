@@ -39,7 +39,7 @@ Not an error. A `scoreboardId` on a submit means "this one targeted board only",
 
 ### `rejected by game validation rules`
 
-The score or streak went over one of the game's caps (maximum per round, or absolute maximum). The message is deliberately generic so players can't probe your limits: the specific cap and value are logged to your dashboard's suspicion log, visible only to the game owner. If you're the developer and this surprises you, check the Security tab's caps.
+The score or streak went over one of the game's caps (maximum per round, or absolute maximum). The message is deliberately generic so players can't probe your limits: the specific cap and value are logged to your dashboard's suspicion log, visible only to the game owner. If you're the developer and this surprises you, check the Security tab's caps. If the board stores something other than points, such as a speedrun time sent as a large number, tick **Skip score caps on this board** on its Scoreboards entry: see [boards that skip score caps](/concepts/anti-cheat#boards-that-skip-score-caps).
 
 Time-validation and score-jump rejections are different: they come back with a specific reason such as `Played too quickly.` or `Score increase too large.`, listed in the [message reference](#message-reference) below, and are also written to the suspicion log.
 
@@ -65,7 +65,7 @@ Two kinds. The **2-second throttle** (one submit per player per board every 2 se
 
 ### Too many active play sessions
 
-Play sessions are capped per player (enforced by the backend). End sessions when runs finish (`POST /play-sessions/end`); when testing, use a fresh `playerId` rather than accumulating sessions on one.
+Not something you should see any more. A player can have up to 3 open play sessions per game, and starting another one now ends their oldest open session instead of failing, so abandoned runs (a closed tab, a killed app) can't lock a player out. Older backends returned `Too many active sessions. Finish or wait for current sessions to expire.` here. End sessions when runs finish (`POST /play-sessions/end`) all the same.
 
 ### `Too many pending device authorizations. Try again shortly.` (HTTP 503)
 
@@ -127,12 +127,12 @@ Only games with time validation turned on return these. None of them mean the pl
 | `This game has time validation on. Start a play session first…` | The submit had no `playSessionToken`. See [above](#this-game-has-time-validation-on-start-a-play-session-first). |
 | `Invalid or expired play session. Start a new game.` | The token isn't recognised, usually because it was already cleaned up. |
 | `Session expired. Start a new game.` | The play session ran past its time limit before the score was sent. |
-| `Session already used. Start a new game.` | Each play session counts for one run. Start a fresh one for the next run. |
+| `Session already used. Start a new game.` | This session already posted to this board. One session covers a whole run and can post once to each board in it, so this means a repeat submit to the same board. Start a fresh session for the next run. |
 | `Session belongs to another player.` / `Session is for a different game.` | The token was started for a different player or game. |
 | `Played too quickly.` | The run was shorter than the game's minimum play time. |
 | `Score too high for play duration.` | The score is higher than the game allows for how long the run lasted. |
 | `Play session validation failed.` | Generic fallback for a play-session check that failed without a specific reason. |
-| `Too many active sessions. Finish or wait for current sessions to expire.` | See [too many active play sessions](#too-many-active-play-sessions). |
+| `Too many active sessions. Finish or wait for current sessions to expire.` | No longer returned: starting a session at the limit ends the player's oldest one. See [too many active play sessions](#too-many-active-play-sessions). |
 
 **Players and achievements**
 

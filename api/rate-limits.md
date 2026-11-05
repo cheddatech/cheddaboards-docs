@@ -46,7 +46,7 @@ Batch achievements: one call with `achievementIds` instead of one call per unloc
 
 - **`503` "Score submissions for this game are temporarily paused"**: the game's submits are paused during an incident. `Retry-After` is 300 seconds.
 - **`503` "Too many pending device authorizations"**: too many unapproved device codes are outstanding platform-wide. Wait a moment and request a new code.
-- **"Too many active sessions"** on a play-session start: the player already has 3 play sessions open. End sessions when runs finish (`POST /play-sessions/end`).
+- **Play sessions**: a player can have up to 3 open per game. Starting another ends their oldest open session rather than failing, so it never blocks play. End sessions when runs finish (`POST /play-sessions/end`).
 
 ## Handling a 429
 

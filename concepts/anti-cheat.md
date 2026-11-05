@@ -4,7 +4,7 @@ Anti-cheat is built in and server-side. You set the limits from your dashboard a
 
 | Protection | How it works |
 |------------|--------------|
-| **Score & streak caps** | Reject any single submission above a per-round maximum, and reject scores past an absolute all-time ceiling |
+| **Score & streak caps** | Reject any single submission above a per-round maximum, and reject scores past an absolute all-time ceiling. A targeted board that stores something other than points can [skip the score caps](#boards-that-skip-score-caps) |
 | **Time validation** | With a play session, reject scores impossible for the elapsed time |
 | **Rate limiting** | One submit per player per board every 2 seconds, always on, plus API-level caps ([Rate limits](/api/rate-limits)) |
 | **Suspicion log** | Every rejection is recorded for you to review — the player only sees a generic error |
@@ -32,9 +32,13 @@ The lifecycle over REST:
 
 Full worked example: [REST quick start §4](/quickstart/rest#_4-anti-cheat-play-sessions-recommended). The SDKs attach the token to every submit for you, but you start and end the session yourself — `start_play_session()` / `StartPlaySession()` when the run begins, `clear_play_session()` / `EndPlaySession()` after the submit (see the [Godot quick start](/quickstart/godot#step-3-anti-cheat-play-sessions-recommended)). On the [Godot template](/engines/godot-4), the game wrapper does all of it.
 
+### One session per run, across every board
+
+A play session covers the **whole run**, not one submit. If a run ends with a main submit plus one or more [targeted board](/concepts/category-boards) submits (a level board, a speedrun board, a shared `runs` board), pass the same token to each of them. Each board accepts a given session once: a second submit to the **same** board with the same token is rejected with `Session already used`, so a session can't be replayed to farm a board, but every board in the run gets its score.
+
 **If time validation is off**, session tokens are accepted but not checked — submits succeed with or without one. Wire the lifecycle up anyway: it costs nothing while validation is off, and the day you enable it on the dashboard your scores are already protected instead of suddenly rejected.
 
-Sessions are capped per player, so always end them when a run finishes rather than leaving them open.
+A player can have up to **3 open play sessions per game**. Starting another one ends their oldest open session, so a player who quits mid-run (closes the tab, kills the app) is never locked out of saving their next score. Still end sessions when a run finishes, so nothing is left open longer than it needs to be.
 
 ## What a rejected score looks like
 
@@ -56,5 +60,22 @@ The caps are yours to tune, and the right values are entirely game-specific. A f
 - **Time validation is your strongest tool** for score-attack and endless games, where score scales with time survived — it makes "impossible in the time elapsed" the thing you're actually checking.
 - **Start loose, watch the suspicion log, tighten.** The log tells you where real submissions cluster, which is the only reliable guide to where the ceiling should sit.
 - Some games legitimately submit very fast or very often (per-kill boards, presence heartbeats). If yours does, lean on caps rather than expecting tight timing, and keep the per-board throttle in mind when you design submit frequency.
+
+## Boards that skip score caps
+
+Score caps and the score-per-second check are set for the whole game. That breaks a board that stores something other than points: a speedrun board that sends a time as one big number (for example `3,600,000 - milliseconds`, so faster runs rank higher) would be rejected on every submit by a sensible score cap.
+
+For these, a targeted board can opt out. In the Developer Console, open your game's **Scoreboards** tab and tick **Skip score caps on this board**. Submits to that board then skip:
+
+- the per-round and all-time **score** caps
+- the **score-per-second** time check
+
+and still get:
+
+- the **streak** caps
+- the **minimum play time** and every other play-session check (right player, right game, not expired, once per board)
+- the 2-second throttle and the API-level [rate limits](/api/rate-limits)
+
+Only targeted boards can opt out. Fan-out boards (`all-time`, `weekly`, `daily` and custom fan-out boards) take the game's main submit, which is exactly what the caps are there to protect. Deleting a board clears the setting, so a board recreated with the same ID starts with caps on again.
 
 **See also:** [REST quick start](/quickstart/rest) · [Errors](/api/errors#rejected-by-game-validation-rules) · [Moderation](/concepts/moderation) · Godot SDK: [signals reference](/engines/godot-signals)

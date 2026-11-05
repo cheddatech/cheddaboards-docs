@@ -105,6 +105,8 @@ curl "https://api.cheddaboards.com/games/my-game/scoreboards/level-14?limit=100"
 - **Play count, not bests.** A targeted submit counts toward the player's play count for the game, but the aggregate profile's score/streak bests only move on a plain submit. If you also want the run reflected in the player's overall bests, send a separate `submit_score(...)`.
 - **Same anti-cheat.** Play-session / time-validation and rate-limit rules are identical to a plain submit.
 - **Per-board throttle.** The 2-second gate is keyed per (player, game, board), so chaining several board submits in one run is fine.
+- **One play session for the whole run.** With time validation on, pass the same `playSessionToken` to every board the run submits to; each board accepts it once. See [Anti-cheat](/concepts/anti-cheat#one-session-per-run-across-every-board).
+- **Boards that aren't points.** A targeted board storing a time or other large number can skip the game's score caps. See [boards that skip score caps](/concepts/anti-cheat#boards-that-skip-score-caps).
 - **Must exist and be targeted.** The board has to exist *and* be marked Targeted. Submitting a `scoreboardId` for a board that doesn't exist returns `"Scoreboard '<id>' not found for this game."` — the API never auto-creates a board on submit. See [Errors](/api/errors).
 - **Don't target a fan-out board.** The ID of a fan-out board (`all-time`, `weekly`, `daily`…) in `scoreboardId` gets converted into a plain submit (the response says `"fanOut": true`). Those boards are updated by a plain submit anyway, so just omit the field.
 
