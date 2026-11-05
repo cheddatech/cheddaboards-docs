@@ -207,7 +207,9 @@ Always implement the lifecycle so the game keeps working if the developer turns 
 2. Run ends → `POST /scores` with `playSessionToken` in the body.
 3. After the submit → `POST /play-sessions/end` with `{playSessionToken}`.
 
-Sessions are capped per player. End them. When testing, use a fresh `playerId` rather than accumulating sessions on one.
+One session covers a whole run: if the run submits to several boards (a plain submit plus targeted boards), pass the same token to each. Each board accepts a session once; a repeat submit to the same board gets `Session already used`. A player holds at most 3 open sessions per game, and starting another ends the oldest, so it never fails. Still end sessions after the run.
+
+Targeted boards that store non-points values (a speedrun time encoded as a large number) can be set to skip the game's score caps and score-per-second check from the dashboard; streak caps and session checks still apply.
 
 Check `GET /game` → `data.timeValidationEnabled` if you need to know the game's current setting.
 
@@ -248,7 +250,7 @@ All errors arrive as `{"ok":false,"error":"..."}`. Status codes: 400 input/valid
 | `authorization_pending` (HTTP 428) | Device code not yet approved | Keep polling every 5 s until 200 or expiry |
 | `Too many pending device authorizations. Try again shortly.` (503) | Transient cap | Wait, request a new code |
 | rate-limit message (400) | Submitted to the same board within 2 s | Wait and resend, or stop over-submitting |
-| too many active play sessions | Sessions not ended | Call `/play-sessions/end`; use a fresh `playerId` when testing |
+| `Session already used` | Second submit to the same board on one session | Start a new session for each run; one session can post once to each board |
 | `Unknown endpoint: <method> <path>` | Wrong path | Check section 5. Usually the nonexistent achievements GET route. |
 | 401 / 403 on a session request | Session expired, logged out, or account removed | Discard the token, fall back to sign-in |
 
@@ -1979,7 +1981,7 @@ Batch achievements: one call with `achievementIds` instead of one call per unloc
 
 - **`503` "Score submissions for this game are temporarily paused"**: the game's submits are paused during an incident. `Retry-After` is 300 seconds.
 - **`503` "Too many pending device authorizations"**: too many unapproved device codes are outstanding platform-wide. Wait a moment and request a new code.
-- **"Too many active sessions"** on a play-session start: the player already has 3 play sessions open. End sessions when runs finish (`POST /play-sessions/end`).
+- **Play sessions**: a player can have up to 3 open per game. Starting another ends their oldest open session rather than failing, so it never blocks play. End sessions when runs finish (`POST /play-sessions/end`).
 
 ## Handling a 429
 
@@ -2035,7 +2037,7 @@ Not an error. A `scoreboardId` on a submit means "this one targeted board only",
 
 ### `rejected by game validation rules`
 
-The score or streak went over one of the game's caps (maximum per round, or absolute maximum). The message is deliberately generic so players can't probe your limits: the specific cap and value are logged to your dashboard's suspicion log, visible only to the game owner. If you're the developer and this surprises you, check the Security tab's caps.
+The score or streak went over one of the game's caps (maximum per round, or absolute maximum). The message is deliberately generic so players can't probe your limits: the specific cap and value are logged to your dashboard's suspicion log, visible only to the game owner. If you're the developer and this surprises you, check the Security tab's caps. If the board stores something other than points, such as a speedrun time sent as a large number, tick **Skip score caps on this board** on its Scoreboards entry: see [boards that skip score caps](https://docs.cheddaboards.com/concepts/anti-cheat#boards-that-skip-score-caps).
 
 Time-validation and score-jump rejections are different: they come back with a specific reason such as `Played too quickly.` or `Score increase too large.`, listed in the [message reference](#message-reference) below, and are also written to the suspicion log.
 
@@ -2061,7 +2063,7 @@ Two kinds. The **2-second throttle** (one submit per player per board every 2 se
 
 ### Too many active play sessions
 
-Play sessions are capped per player (enforced by the backend). End sessions when runs finish (`POST /play-sessions/end`); when testing, use a fresh `playerId` rather than accumulating sessions on one.
+Not something you should see any more. A player can have up to 3 open play sessions per game, and starting another one now ends their oldest open session instead of failing, so abandoned runs (a closed tab, a killed app) can't lock a player out. Older backends returned `Too many active sessions. Finish or wait for current sessions to expire.` here. End sessions when runs finish (`POST /play-sessions/end`) all the same.
 
 ### `Too many pending device authorizations. Try again shortly.` (HTTP 503)
 
@@ -2123,12 +2125,12 @@ Only games with time validation turned on return these. None of them mean the pl
 | `This game has time validation on. Start a play session first…` | The submit had no `playSessionToken`. See [above](#this-game-has-time-validation-on-start-a-play-session-first). |
 | `Invalid or expired play session. Start a new game.` | The token isn't recognised, usually because it was already cleaned up. |
 | `Session expired. Start a new game.` | The play session ran past its time limit before the score was sent. |
-| `Session already used. Start a new game.` | Each play session counts for one run. Start a fresh one for the next run. |
+| `Session already used. Start a new game.` | This session already posted to this board. One session covers a whole run and can post once to each board in it, so this means a repeat submit to the same board. Start a fresh session for the next run. |
 | `Session belongs to another player.` / `Session is for a different game.` | The token was started for a different player or game. |
 | `Played too quickly.` | The run was shorter than the game's minimum play time. |
 | `Score too high for play duration.` | The score is higher than the game allows for how long the run lasted. |
 | `Play session validation failed.` | Generic fallback for a play-session check that failed without a specific reason. |
-| `Too many active sessions. Finish or wait for current sessions to expire.` | See [too many active play sessions](#too-many-active-play-sessions). |
+| `Too many active sessions. Finish or wait for current sessions to expire.` | No longer returned: starting a session at the limit ends the player's oldest one. See [too many active play sessions](#too-many-active-play-sessions). |
 
 **Players and achievements**
 
@@ -3852,6 +3854,8 @@ curl "https://api.cheddaboards.com/games/my-game/scoreboards/level-14?limit=100"
 - **Play count, not bests.** A targeted submit counts toward the player's play count for the game, but the aggregate profile's score/streak bests only move on a plain submit. If you also want the run reflected in the player's overall bests, send a separate `submit_score(...)`.
 - **Same anti-cheat.** Play-session / time-validation and rate-limit rules are identical to a plain submit.
 - **Per-board throttle.** The 2-second gate is keyed per (player, game, board), so chaining several board submits in one run is fine.
+- **One play session for the whole run.** With time validation on, pass the same `playSessionToken` to every board the run submits to; each board accepts it once. See [Anti-cheat](https://docs.cheddaboards.com/concepts/anti-cheat#one-session-per-run-across-every-board).
+- **Boards that aren't points.** A targeted board storing a time or other large number can skip the game's score caps. See [boards that skip score caps](https://docs.cheddaboards.com/concepts/anti-cheat#boards-that-skip-score-caps).
 - **Must exist and be targeted.** The board has to exist *and* be marked Targeted. Submitting a `scoreboardId` for a board that doesn't exist returns `"Scoreboard '<id>' not found for this game."` — the API never auto-creates a board on submit. See [Errors](https://docs.cheddaboards.com/api/errors).
 - **Don't target a fan-out board.** The ID of a fan-out board (`all-time`, `weekly`, `daily`…) in `scoreboardId` gets converted into a plain submit (the response says `"fanOut": true`). Those boards are updated by a plain submit anyway, so just omit the field.
 
@@ -3884,7 +3888,7 @@ Anti-cheat is built in and server-side. You set the limits from your dashboard a
 
 | Protection | How it works |
 |------------|--------------|
-| **Score & streak caps** | Reject any single submission above a per-round maximum, and reject scores past an absolute all-time ceiling |
+| **Score & streak caps** | Reject any single submission above a per-round maximum, and reject scores past an absolute all-time ceiling. A targeted board that stores something other than points can [skip the score caps](#boards-that-skip-score-caps) |
 | **Time validation** | With a play session, reject scores impossible for the elapsed time |
 | **Rate limiting** | One submit per player per board every 2 seconds, always on, plus API-level caps ([Rate limits](https://docs.cheddaboards.com/api/rate-limits)) |
 | **Suspicion log** | Every rejection is recorded for you to review — the player only sees a generic error |
@@ -3912,9 +3916,13 @@ The lifecycle over REST:
 
 Full worked example: [REST quick start §4](https://docs.cheddaboards.com/quickstart/rest#_4-anti-cheat-play-sessions-recommended). The SDKs attach the token to every submit for you, but you start and end the session yourself — `start_play_session()` / `StartPlaySession()` when the run begins, `clear_play_session()` / `EndPlaySession()` after the submit (see the [Godot quick start](https://docs.cheddaboards.com/quickstart/godot#step-3-anti-cheat-play-sessions-recommended)). On the [Godot template](https://docs.cheddaboards.com/engines/godot-4), the game wrapper does all of it.
 
+### One session per run, across every board
+
+A play session covers the **whole run**, not one submit. If a run ends with a main submit plus one or more [targeted board](https://docs.cheddaboards.com/concepts/category-boards) submits (a level board, a speedrun board, a shared `runs` board), pass the same token to each of them. Each board accepts a given session once: a second submit to the **same** board with the same token is rejected with `Session already used`, so a session can't be replayed to farm a board, but every board in the run gets its score.
+
 **If time validation is off**, session tokens are accepted but not checked — submits succeed with or without one. Wire the lifecycle up anyway: it costs nothing while validation is off, and the day you enable it on the dashboard your scores are already protected instead of suddenly rejected.
 
-Sessions are capped per player, so always end them when a run finishes rather than leaving them open.
+A player can have up to **3 open play sessions per game**. Starting another one ends their oldest open session, so a player who quits mid-run (closes the tab, kills the app) is never locked out of saving their next score. Still end sessions when a run finishes, so nothing is left open longer than it needs to be.
 
 ## What a rejected score looks like
 
@@ -3936,6 +3944,23 @@ The caps are yours to tune, and the right values are entirely game-specific. A f
 - **Time validation is your strongest tool** for score-attack and endless games, where score scales with time survived — it makes "impossible in the time elapsed" the thing you're actually checking.
 - **Start loose, watch the suspicion log, tighten.** The log tells you where real submissions cluster, which is the only reliable guide to where the ceiling should sit.
 - Some games legitimately submit very fast or very often (per-kill boards, presence heartbeats). If yours does, lean on caps rather than expecting tight timing, and keep the per-board throttle in mind when you design submit frequency.
+
+## Boards that skip score caps
+
+Score caps and the score-per-second check are set for the whole game. That breaks a board that stores something other than points: a speedrun board that sends a time as one big number (for example `3,600,000 - milliseconds`, so faster runs rank higher) would be rejected on every submit by a sensible score cap.
+
+For these, a targeted board can opt out. In the Developer Console, open your game's **Scoreboards** tab and tick **Skip score caps on this board**. Submits to that board then skip:
+
+- the per-round and all-time **score** caps
+- the **score-per-second** time check
+
+and still get:
+
+- the **streak** caps
+- the **minimum play time** and every other play-session check (right player, right game, not expired, once per board)
+- the 2-second throttle and the API-level [rate limits](https://docs.cheddaboards.com/api/rate-limits)
+
+Only targeted boards can opt out. Fan-out boards (`all-time`, `weekly`, `daily` and custom fan-out boards) take the game's main submit, which is exactly what the caps are there to protect. Deleting a board clears the setting, so a board recreated with the same ID starts with caps on again.
 
 **See also:** [REST quick start](https://docs.cheddaboards.com/quickstart/rest) · [Errors](https://docs.cheddaboards.com/api/errors#rejected-by-game-validation-rules) · [Moderation](https://docs.cheddaboards.com/concepts/moderation) · Godot SDK: [signals reference](https://docs.cheddaboards.com/engines/godot-signals)
 
