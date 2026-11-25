@@ -2,7 +2,7 @@
 
 Let players show a name in their own language, like `田中 太郎`, `김민준`, `Дмитрий` or `Ana María`, alongside their nickname.
 
-Needs the Godot 4 addon **2.5.0+** or the REST API. Unity support is coming in the Unity SDK 2.5.0; until then Unity games can call the REST endpoints below.
+Needs the Godot 4 addon **2.5.0+**, the Unity SDK **2.5.0+**, or the REST API.
 
 ## Nickname vs display name
 
