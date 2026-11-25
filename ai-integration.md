@@ -78,6 +78,8 @@ Nickname rule everywhere: **3–16 characters, `A–Z a–z 0–9 _` only**. On 
 | `PUT` | `/players/{playerId}/nickname` | API key | `{nickname}` |
 | `GET` | `/auth/profile` | session | Signed-in player profile |
 | `PUT` | `/profile/nickname` | session | `{nickname}` |
+| `PUT` | `/players/{playerId}/display-name` | API key | `{displayName}` (`null` clears; game must have International names on) |
+| `PUT` | `/profile/display-name` | session | `{displayName}` (`null` clears; game must have International names on) |
 | `POST` | `/auth/device/code` | none (`X-Game-ID` only) | `{gameId, nickname?}` |
 | `POST` | `/auth/device/token` | none (`X-Game-ID` only) | `{device_code}` |
 | `POST` | `/play-sessions/start` | API key | `{gameId, playerId}` |

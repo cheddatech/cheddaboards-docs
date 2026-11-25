@@ -4,6 +4,10 @@ How nicknames work, the three rules that keep them from going wrong, and copy-pa
 
 Applies to the Godot 4 addon **2.2.7+** and the Unity SDK **2.3.0+**. Older versions had a bug where a submit could overwrite a saved name with a generated one; if names are "changing on their own", update the SDK first. The Godot 3.6 backport (2.2.5-3x) still has that bug: on 3.6, call `refresh_profile()` after login and wait for `profile_loaded` or `no_profile` before the first submit (see the [3.6 guide](/engines/godot-3#known-differences-from-2-2-7)). Everything else on this page applies to 3.6 as written.
 
+::: tip Names in other languages
+Nicknames are ASCII only. To let players show `田中 太郎` or `Дмитрий`, use [display names](/concepts/display-names): an optional second name, any language, in games that turn it on.
+:::
+
 ## The one thing to understand
 
 **A player's name lives on the server, not in your game.** It's attached to their profile (an anonymous device ID, or a linked account) and it's the same across every game on CheddaBoards. The SDK keeps a local copy and only writes to the server when:

@@ -1,6 +1,6 @@
 # Players
 
-Reading a player's profile and rank, and changing nicknames.
+Reading a player's profile and rank, and changing nicknames and display names.
 
 ## Get a player's profile
 
@@ -88,6 +88,17 @@ The rule is the same on both: **3–16 characters, letters, digits, and undersco
 ::: tip Renaming a brand-new player
 An anonymous player isn't created on the backend until their **first score submit**. If you call `PUT /players/{playerId}/nickname` before that, the API holds the name for up to 24 hours and applies it on the player's first submit. The response says `"pending": true` with `gameProfile: null`. If the name is taken by then, the profile is created as `Player_1248`; check the profile after the first score and rename again if you need to. Including `nickname` in the first submit has the same effect. The official SDKs (Godot 2.2.7+, Unity 2.3.0+) hold a pre-profile rename locally, send it with the first submit, and if the profile that loads afterwards shows a different name (the chosen one was taken), re-send the rename so the player ends up with the suffixed version rather than `Player_N`. The full picture, with copy-paste name-entry flows, is on [Player names](/concepts/player-names).
 :::
+
+## Set a display name
+
+Games with **International names** turned on in the dashboard can give each player an optional display name in any language, alongside their nickname:
+
+```
+PUT /players/{playerId}/display-name     # anonymous — body: { "displayName": "..." }
+PUT /profile/display-name                # signed-in — X-Session-Token, body: { "displayName": "..." }
+```
+
+Send `null` or `""` to clear it. The response's `data.displayName` is the normalised name actually stored. Display names aren't unique, are 2–16 characters in one alphabet (Japanese, Chinese and Korean mixes are fine), and only appear in games with the setting on: on board entries and profiles as `displayName`. Full rules, fonts and SDK calls: [Display names](/concepts/display-names).
 
 ## Identity, briefly
 

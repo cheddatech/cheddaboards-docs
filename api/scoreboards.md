@@ -59,7 +59,7 @@ curl "https://api.cheddaboards.com/games/my-game/scoreboards/weekly?limit=100" \
 }
 ```
 
-`config` describes the board (`period` is its reset cadence, `lastReset` when the current period began), `entries` are ranked, and `totalEntries` is the board's full size, handy when you've asked for fewer with `limit`. Each entry adds `submittedAt` to the fields above: when that best was set, in nanoseconds. Field-by-field, including the archive variant: [Timed leaderboards → the config dictionary](/concepts/timed-leaderboards#the-config-dictionary).
+`config` describes the board (`period` is its reset cadence, `lastReset` when the current period began), `entries` are ranked, and `totalEntries` is the board's full size, handy when you've asked for fewer with `limit`. Each entry adds `submittedAt` to the fields above: when that best was set, in nanoseconds. In games with International names on, entries whose player has one also carry `displayName` (see [Display names](/concepts/display-names)). Field-by-field, including the archive variant: [Timed leaderboards → the config dictionary](/concepts/timed-leaderboards#the-config-dictionary).
 
 ### Reading straight from the chain
 

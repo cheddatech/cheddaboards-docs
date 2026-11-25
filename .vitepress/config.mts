@@ -72,6 +72,7 @@ export default defineConfig({
           { text: 'Data model', link: '/concepts/data-model' },
           { text: 'Players and accounts', link: '/concepts/accounts' },
           { text: 'Player names', link: '/concepts/player-names' },
+          { text: 'Display names (any language)', link: '/concepts/display-names' },
           { text: 'Shared devices', link: '/concepts/shared-devices' },
           { text: 'Device code login', link: '/concepts/device-code' },
           { text: 'Timed leaderboards', link: '/concepts/timed-leaderboards' },

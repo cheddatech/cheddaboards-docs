@@ -37,6 +37,7 @@ const PAGES = [
   'concepts/data-model',
   'concepts/accounts',
   'concepts/player-names',
+  'concepts/display-names',
   'concepts/shared-devices',
   'concepts/device-code',
   'concepts/timed-leaderboards',

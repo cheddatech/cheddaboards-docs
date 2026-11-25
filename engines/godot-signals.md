@@ -34,6 +34,8 @@ signal profile_loaded(nickname: String, score: int, streak: int, achievements: A
 signal no_profile()
 signal nickname_changed(new_nickname: String)
 signal nickname_error(reason: String)
+signal display_name_changed(display_name: String)   # 2.5.0+, "" = cleared
+signal display_name_error(reason: String)            # 2.5.0+
 ```
 
 `profile_loaded` gained `play_count` as its 5th argument in v2.2.0 — a four-argument handler from an older version must add a trailing `play_count: int`.
